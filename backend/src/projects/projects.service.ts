@@ -7,8 +7,8 @@ export class ProjectsService {
   async createProject(
     userId: string,
     name: string,
-    description: string,
     techStack: string[],
+    description?: string,
   ) {
     return this.prisma.project.create({
       data: {
@@ -17,6 +17,18 @@ export class ProjectsService {
         techStack,
         userId,
       },
+    });
+  }
+
+  async getUserProjects(userId: string) {
+    return this.prisma.project.findMany({
+      where: { userId },
+      include: {
+        _count: {
+          select: { reflections: true },
+        },
+      },
+      orderBy: { createdAt: 'desc' },
     });
   }
 }

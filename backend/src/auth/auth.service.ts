@@ -31,6 +31,7 @@ export class AuthService {
 
     return {
       message: 'User registered successfully',
+      user: { id: user.id, email: user.email, name: user.name },
       accessToken: token,
     };
   }
@@ -44,6 +45,10 @@ export class AuthService {
 
     const passwordMatch = await bcrypt.compare(password, user.password);
 
+    if (!passwordMatch) {
+      throw new BadRequestException('Invalid password');
+    }
+
     const token = this.jwtService.sign({
       sub: user.id,
       email: user.email,
@@ -51,6 +56,7 @@ export class AuthService {
 
     return {
       message: 'Login successfully',
+      user: { id: user.id, email: user.email, name: user.name },
       accessToken: token,
     };
   }

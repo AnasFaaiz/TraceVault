@@ -17,8 +17,14 @@ export class ProjectsController {
     return this.projectsService.createProject(
       userId,
       body.name,
-      body.description,
       body.techStack,
+      body.description,
     );
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Get()
+  getProjects(@Req() req: any) {
+    return this.projectsService.getUserProjects(req.user.sub);
   }
 }
