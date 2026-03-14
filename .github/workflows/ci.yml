@@ -25,26 +25,15 @@ jobs:
               run: npm ci
               working-directory: ./client
 
-            - name: Lint Client
-              run: npm run lint
-              working-directory: ./client
-
-            - name: Typecheck Client
-              run: npx tsc --noEmit
-              working-directory: ./client
-
             # Check Backend
             - name: Install Backend Dependencies
               run: npm ci
               working-directory: ./backend
 
-            - name: Lint Backend
-              run: npm run lint
-              working-directory: ./backend
-
-            - name: Typecheck Backend
-              run: npx tsc --noEmit
-              working-directory: ./backend
+            - name: Lint and Typecheck
+              run: |
+                cd client && npm run lint && npx tsc --noEmit
+                cd ../backend && npm run lint && npx tsc --noEmit
             
     deploy-preview:
         needs: check
@@ -59,21 +48,12 @@ jobs:
                 cache-dependency-path: ./client/package-lock.json
             - run: npm ci
               working-directory: ./client
-            - name: Vercel Pull
-              run: npx vercel pull --yes --environment=preview --token ${{ secrets.VERCEL_TOKEN }}
+            - name: Vercel Pull, Build and Deploy
               working-directory: ./client
-              env:
-                VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
-                VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
-            - name: Vercel Build
-              run: npx vercel build --token ${{ secrets.VERCEL_TOKEN }}
-              working-directory: ./client
-              env:
-                VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
-                VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
-            - name: Vercel Deploy
-              run: npx vercel deploy --prebuilt --token ${{ secrets.VERCEL_TOKEN }}
-              working-directory: ./client
+              run: |
+                npx vercel pull --yes --environment=preview --token ${{ secrets.VERCEL_TOKEN }}
+                npx vercel build --token ${{ secrets.VERCEL_TOKEN }}
+                npx vercel deploy --prebuilt --token ${{ secrets.VERCEL_TOKEN }}
               env:
                 VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
                 VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
@@ -91,21 +71,12 @@ jobs:
                 cache-dependency-path: ./client/package-lock.json
             - run: npm ci
               working-directory: ./client
-            - name: Vercel Pull
-              run: npx vercel pull --yes --environment=production --token ${{ secrets.VERCEL_TOKEN }}
+            - name: Vercel Pull, Build and Deploy
               working-directory: ./client
-              env:
-                VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
-                VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
-            - name: Vercel Build
-              run: npx vercel build --prod --token ${{ secrets.VERCEL_TOKEN }}
-              working-directory: ./client
-              env:
-                VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
-                VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
-            - name: Vercel Deploy
-              run: npx vercel deploy --prebuilt --prod --token ${{ secrets.VERCEL_TOKEN }}
-              working-directory: ./client
+              run: |
+                npx vercel pull --yes --environment=production --token ${{ secrets.VERCEL_TOKEN }}
+                npx vercel build --prod --token ${{ secrets.VERCEL_TOKEN }}
+                npx vercel deploy --prebuilt --prod --token ${{ secrets.VERCEL_TOKEN }}
               env:
                 VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
                 VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
