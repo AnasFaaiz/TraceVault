@@ -45,8 +45,9 @@ export default function RegisterPage() {
       const { user, accessToken } = loginResponse.data;
       setAuth(user, accessToken);
       router.push('/dashboard');
-    } catch (err: any) {
-      setError(err.response?.data?.message || 'Registration failed. Please try again.');
+    } catch (err) {
+      const axiosError = err as { response?: { data?: { message?: string } } };
+      setError(axiosError.response?.data?.message || 'Registration failed. Please try again.');
     } finally {
       setIsLoading(false);
     }

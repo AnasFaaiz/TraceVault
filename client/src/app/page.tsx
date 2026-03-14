@@ -66,7 +66,7 @@ export default function LandingPage() {
                   </div>
                   <div className={styles.rcEntry}>
                     <span className={`${styles.rcEntryTag} ${styles.tagLesson}`}>Lesson</span>
-                    <p className={styles.rcEntryText}><strong>Map failure paths before happy paths.</strong> We'd have caught the storm in design, not production.</p>
+                    <p className={styles.rcEntryText}><strong>Map failure paths before happy paths.</strong> We&apos;d have caught the storm in design, not production.</p>
                   </div>
                 </div>
               </div>
@@ -101,7 +101,7 @@ export default function LandingPage() {
             <div className={styles.featureCell}>
               <div className={`${styles.featureIcon} ${styles.amberBg}`}><GitBranch size={18} /></div>
               <h3 className={styles.featureTitle}>Design decisions</h3>
-              <p className={styles.featureDesc}>Log the "why" behind every architectural choice. Your future self — and your teammates — will thank you.</p>
+              <p className={styles.featureDesc}>Log the &quot;why&quot; behind every architectural choice. Your future self — and your teammates — will thank you.</p>
             </div>
             <div className={styles.featureCell}>
               <div className={`${styles.featureIcon} ${styles.tealBg}`}><Layers size={18} /></div>
@@ -119,9 +119,9 @@ export default function LandingPage() {
         {/* Pull quote */}
         <div className={styles.quoteSection}>
           <div className={styles.quoteInner}>
-            <span className={styles.quoteMark}>"</span>
+            <span className={styles.quoteMark}>&quot;</span>
             <p className={styles.quoteText}>
-              Senior engineers aren't hired for their code. They're hired for the 
+              Senior engineers aren&apos;t hired for their code. They&apos;re hired for the 
               quality of their thinking when the problem is unclear.
             </p>
             <p className={styles.quoteAttr}>— The premise behind TraceVault</p>

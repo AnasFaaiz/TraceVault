@@ -7,7 +7,6 @@ import {
 import { useAuthStore } from '@/store/useAuthStore';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
-import Link from 'next/link';
 import api from '@/lib/api';
 
 interface Project {
@@ -191,7 +190,7 @@ export default function Dashboard() {
                             Welcome back, <em style={{ color: 'var(--amber)' }}>{user.name.split(' ')[0]}</em>
                         </p>
                         <p style={{ fontSize: 14, fontWeight: 300, color: 'var(--muted)', lineHeight: 1.6 }}>
-                            Ready to document today's engineering decisions?
+                            Ready to document today&apos;s engineering decisions?
                         </p>
                     </div>
 
