@@ -5,7 +5,10 @@ import { PrismaService } from '../../prisma/prisma.service';
 export class ReflectionsService {
   constructor(private prisma: PrismaService) {}
 
-  async createReflection(projectId: string, data: { title: string; type: string; content: string }) {
+  async createReflection(
+    projectId: string,
+    data: { title: string; type: string; content: string },
+  ) {
     return this.prisma.reflection.create({
       data: {
         ...data,

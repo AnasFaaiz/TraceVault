@@ -9,7 +9,7 @@ export class ProjectsController {
   @UseGuards(JwtAuthGuard)
   @Post()
   createProject(
-    @Body() body: {name: string; description?: string; techStack: string[] },
+    @Body() body: { name: string; description?: string; techStack: string[] },
     @Req() req: { user: { userId: string } },
   ) {
     const userId = req.user.userId;

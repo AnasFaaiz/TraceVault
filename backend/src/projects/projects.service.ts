@@ -12,7 +12,7 @@ export class ProjectsService {
   ) {
     return this.prisma.project.create({
       data: {
-        name, 
+        name,
         description,
         techStack,
         userId,

@@ -8,8 +8,8 @@ import { ReflectionsModule } from './reflections/reflections.module';
 
 @Module({
   imports: [
-    UsersModule, 
-    AuthModule, 
+    UsersModule,
+    AuthModule,
     PrismaModule,
     ConfigModule.forRoot({
       isGlobal: true,
