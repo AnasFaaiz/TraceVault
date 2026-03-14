@@ -19,7 +19,6 @@ export default function LandingPage() {
         </div>
       </nav>
 
-      {/* Hero */}
       <main>
         <section className={styles.hero}>
           <div className={styles.heroLeft}>
@@ -31,7 +30,7 @@ export default function LandingPage() {
               Document the <em>thinking</em>,<br />not just the code.
             </h1>
             <p className={styles.heroSub}>
-              A structured vault for serious engineers. Record your design decisions, 
+              A structured vault for serious engineers. Record your design decisions,
               architectural tradeoffs, and lessons learned — and watch your thinking evolve over time.
             </p>
             <div className={styles.heroActions}>
@@ -91,8 +90,8 @@ export default function LandingPage() {
               </h2>
             </div>
             <p className={styles.sectionBody}>
-              Most portfolios show what you built. TraceVault shows how you think — 
-              the real differentiator in senior engineering interviews, design reviews, 
+              Most portfolios show what you built. TraceVault shows how you think —
+              the real differentiator in senior engineering interviews, design reviews,
               and your own learning arc.
             </p>
           </div>
@@ -121,7 +120,7 @@ export default function LandingPage() {
           <div className={styles.quoteInner}>
             <span className={styles.quoteMark}>&quot;</span>
             <p className={styles.quoteText}>
-              Senior engineers aren&apos;t hired for their code. They&apos;re hired for the 
+              Senior engineers aren&apos;t hired for their code. They&apos;re hired for the
               quality of their thinking when the problem is unclear.
             </p>
             <p className={styles.quoteAttr}>— The premise behind TraceVault</p>
