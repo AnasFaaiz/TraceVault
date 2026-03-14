@@ -10,9 +10,9 @@ export class ProjectsController {
   @Post()
   createProject(
     @Body() body: {name: string; description?: string; techStack: string[] },
-    @Req() req: any,
+    @Req() req: { user: { userId: string } },
   ) {
-    const userId = req.user.sub;
+    const userId = req.user.userId;
 
     return this.projectsService.createProject(
       userId,
@@ -24,7 +24,7 @@ export class ProjectsController {
 
   @UseGuards(JwtAuthGuard)
   @Get()
-  getProjects(@Req() req: any) {
-    return this.projectsService.getUserProjects(req.user.sub);
+  getProjects(@Req() req: { user: { userId: string } }) {
+    return this.projectsService.getUserProjects(req.user.userId);
   }
 }

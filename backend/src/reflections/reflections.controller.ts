@@ -20,9 +20,9 @@ export class ReflectionsController {
 
   @UseGuards(JwtAuthGuard)
   @Get('recent')
-  getRecent(@Req() req: any, @Query('limit') limit?: string) {
+  getRecent(@Req() req: { user: { userId: string } }, @Query('limit') limit?: string) {
     return this.reflectionsService.getRecentReflections(
-      req.user.sub,
+      req.user.userId,
       limit ? parseInt(limit) : 5,
     );
   }
