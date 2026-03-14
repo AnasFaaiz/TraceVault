@@ -31,7 +31,7 @@ const TYPE_STYLES: Record<string, { label: string; bg: string; color: string }> 
 };
 
 export default function Dashboard() {
-    const { user, logout, token } = useAuthStore();
+    const { user, logout, token, _hasHydrated } = useAuthStore();
     const router = useRouter();
     const [projects, setProjects] = useState<Project[]>([]);
     const [reflections, setReflections] = useState<Reflection[]>([]);
@@ -39,6 +39,7 @@ export default function Dashboard() {
     const [activeNav, setActiveNav] = useState('overview');
 
     useEffect(() => {
+        if (!_hasHydrated) return;
         if (!token) { router.push('/login'); return; }
         const fetchData = async () => {
             try {
@@ -52,7 +53,15 @@ export default function Dashboard() {
             }
         };
         fetchData();
-    }, [token, router]);
+    }, [token, router, _hasHydrated]);
+
+    if (!_hasHydrated || (token && !user)) {
+        return (
+            <div style={{ height: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#f5f2eb' }}>
+                <Loader2 className="animate-spin" size={32} color="#c8852a" />
+            </div>
+        );
+    }
 
     if (!user) return null;
 

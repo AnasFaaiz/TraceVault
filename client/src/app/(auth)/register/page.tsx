@@ -5,7 +5,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import AuthLayout from '@/components/auth/AuthLayout';
 import { Loader2 } from 'lucide-react';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import styles from '@/app/auth.module.css';
 import api from '@/lib/api';
 import { useAuthStore } from '@/store/useAuthStore';
@@ -22,8 +22,14 @@ type RegisterFormValues = z.infer<typeof registerSchema>;
 export default function RegisterPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const setAuth = useAuthStore((state) => state.setAuth);
+  const { setAuth, token, _hasHydrated } = useAuthStore();
   const router = useRouter();
+
+  useEffect(() => {
+    if (_hasHydrated && token) {
+      router.push('/dashboard');
+    }
+  }, [_hasHydrated, token, router]);
 
   const { register, handleSubmit, formState: { errors } } = useForm<RegisterFormValues>({
     resolver: zodResolver(registerSchema),
