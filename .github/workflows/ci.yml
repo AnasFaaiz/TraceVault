@@ -49,7 +49,6 @@ jobs:
             - run: npm ci
               working-directory: ./client
             - name: Vercel Pull, Build and Deploy
-              working-directory: ./client
               run: |
                 npx vercel pull --yes --environment=preview --token ${{ secrets.VERCEL_TOKEN }}
                 npx vercel build --token ${{ secrets.VERCEL_TOKEN }}
@@ -72,7 +71,6 @@ jobs:
             - run: npm ci
               working-directory: ./client
             - name: Vercel Pull, Build and Deploy
-              working-directory: ./client
               run: |
                 npx vercel pull --yes --environment=production --token ${{ secrets.VERCEL_TOKEN }}
                 npx vercel build --prod --token ${{ secrets.VERCEL_TOKEN }}
