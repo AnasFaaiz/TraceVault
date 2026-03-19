@@ -71,4 +71,52 @@ export class ReflectionsService {
       },
     });
   }
+
+  async getFilteredReflections(filters: {
+    userId?: string;
+    projectId?: string;
+    search?: string;
+    type?: string;
+    impact?: string;
+    limit?: number;
+  }) {
+    const { userId, projectId, search, type, impact, limit = 50 } = filters;
+    
+    const where: any = {};
+    const and: any[] = [];
+
+    if (userId) and.push({ project: { userId } });
+    if (projectId) and.push({ projectId });
+    if (type) and.push({ type });
+    if (impact) and.push({ impact });
+    if (search) {
+      and.push({
+        OR: [
+          { title: { contains: search, mode: 'insensitive' } },
+          { content: { contains: search, mode: 'insensitive' } },
+        ],
+      });
+    }
+
+    if (and.length > 0) where.AND = and;
+
+    return this.prisma.reflection.findMany({
+      where,
+      include: {
+        project: {
+          include: {
+            user: {
+              select: {
+                name: true,
+              },
+            },
+          },
+        },
+      },
+      orderBy: {
+        createdAt: 'desc',
+      },
+      take: limit,
+    });
+  }
 }

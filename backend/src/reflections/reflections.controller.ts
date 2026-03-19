@@ -59,4 +59,23 @@ export class ReflectionsController {
   getProjectReflections(@Param('projectId') projectId: string) {
     return this.reflectionsService.getProjectReflections(projectId);
   }
+
+  @UseGuards(JwtAuthGuard)
+  @Get('search')
+  search(
+    @Req() req: { user: { userId: string } },
+    @Query('q') q?: string,
+    @Query('type') type?: string,
+    @Query('impact') impact?: string,
+    @Query('projectId') projectId?: string,
+    @Query('scope') scope: 'personal' | 'global' = 'personal',
+  ) {
+    return this.reflectionsService.getFilteredReflections({
+      userId: scope === 'personal' ? req.user.userId : undefined,
+      projectId,
+      search: q,
+      type,
+      impact,
+    });
+  }
 }

@@ -1,12 +1,12 @@
 "use client";
 
 import {
-    Terminal, LogOut, Layout, Folder, History,
-    Settings, Plus, Globe, Loader2
+    Terminal, Layout, Folder, History, LogOut,
+    Settings, Plus, Globe, Loader2, Search
 } from 'lucide-react';
 import { useAuthStore } from '@/store/useAuthStore';
 import { useRouter, usePathname } from 'next/navigation';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useReflectionModal } from '@/store/useReflectionModal';
 import NewReflectionModal from './NewReflectionModal';
@@ -24,11 +24,20 @@ export default function AppLayout({ children, title, subtitle, projectId: preSel
     const { isOpen, close, open, projectId: modalProjectId } = useReflectionModal();
     const router = useRouter();
     const pathname = usePathname();
+    const [searchQuery, setSearchQuery] = useState('');
 
     useEffect(() => {
         if (!_hasHydrated) return;
         if (!token) { router.push('/login'); }
     }, [token, router, _hasHydrated]);
+
+    const handleSearch = (e: React.FormEvent) => {
+        e.preventDefault();
+        if (searchQuery.trim()) {
+            router.push(`/feed?q=${encodeURIComponent(searchQuery.trim())}`);
+            setSearchQuery('');
+        }
+    };
 
     if (!_hasHydrated || (token && !user)) {
         return (
@@ -134,16 +143,42 @@ export default function AppLayout({ children, title, subtitle, projectId: preSel
             {/* ── Main ── */}
             <main style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column' }}>
                 {/* Topbar */}
-                <header style={{ padding: '20px 36px', borderBottom: '1px solid var(--border)', background: '#f5f2eb', display: 'flex', justifyContent: 'space-between', alignItems: 'center', position: 'sticky', top: 0, zIndex: 10 }}>
-                    <div>
-                        <p style={{ fontFamily: 'var(--mono)', fontSize: 11, color: 'var(--muted)', letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 2 }}>{subtitle}</p>
-                        <h1 style={{ fontFamily: "'Instrument Serif', Georgia, serif", fontSize: 22, fontWeight: 400, color: '#0e0d0b' }}>
-                            {title}
-                        </h1>
+                <header style={{ padding: '16px 36px', borderBottom: '1px solid var(--border)', background: '#f5f2eb', display: 'flex', justifyContent: 'space-between', alignItems: 'center', position: 'sticky', top: 0, zIndex: 10 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 40, flex: 1 }}>
+                        <div>
+                            <p style={{ fontFamily: 'var(--mono)', fontSize: 11, color: 'var(--muted)', letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 2 }}>{subtitle}</p>
+                            <h1 style={{ fontFamily: "'Instrument Serif', Georgia, serif", fontSize: 22, fontWeight: 400, color: '#0e0d0b', whiteSpace: 'nowrap' }}>
+                                {title}
+                            </h1>
+                        </div>
+
+                        {/* Global Search Bar */}
+                        <form onSubmit={handleSearch} style={{ flex: 1, maxWidth: 400, position: 'relative' }}>
+                            <Search size={14} color="var(--muted)" style={{ position: 'absolute', left: 14, top: '50%', transform: 'translateY(-50%)' }} />
+                            <input 
+                                value={searchQuery}
+                                onChange={e => setSearchQuery(e.target.value)}
+                                placeholder="Search the Vault... (Title, Content)" 
+                                style={{
+                                    width: '100%', padding: '10px 14px 10px 40px',
+                                    borderRadius: 10, border: '1px solid var(--border)',
+                                    background: 'var(--paper-dark)', fontSize: 13,
+                                    outline: 'none', transition: 'all 0.2s',
+                                    fontFamily: 'var(--mono)'
+                                }}
+                                onFocus={(e) => e.target.style.background = '#fff'}
+                                onBlur={(e) => e.target.style.background = 'var(--paper-dark)'}
+                            />
+                            <div style={{ position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)', display: 'flex', gap: 4 }}>
+                                <span style={{ padding: '2px 6px', background: 'var(--paper)', border: '1px solid var(--border)', borderRadius: 4, fontSize: 9, color: 'var(--muted)', fontFamily: 'var(--mono)' }}>⌘</span>
+                                <span style={{ padding: '2px 6px', background: 'var(--paper)', border: '1px solid var(--border)', borderRadius: 4, fontSize: 9, color: 'var(--muted)', fontFamily: 'var(--mono)' }}>K</span>
+                            </div>
+                        </form>
                     </div>
+
                     <button 
                         onClick={() => open(preSelectedProjectId)}
-                        style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '9px 16px', background: '#0e0d0b', color: '#f5f2eb', border: 'none', borderRadius: 8, fontFamily: 'var(--mono)', fontSize: 12, fontWeight: 500, cursor: 'pointer', letterSpacing: '0.01em', transition: 'background 0.2s' }}>
+                        style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '9px 16px', background: '#0e0d0b', color: '#f5f2eb', border: 'none', borderRadius: 8, fontFamily: 'var(--mono)', fontSize: 12, fontWeight: 500, cursor: 'pointer', letterSpacing: '0.01em', transition: 'background 0.2s', marginLeft: 24, flexShrink: 0 }}>
                         <Plus size={14} /> New reflection
                     </button>
                 </header>
