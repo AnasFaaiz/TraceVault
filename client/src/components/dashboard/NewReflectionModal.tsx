@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from 'react';
-import { X, Loader2, Send, Info, Eye, Type, Gauge } from 'lucide-react';
+import { X, Loader2, Send, Eye, Type } from 'lucide-react';
 import api from '@/lib/api';
 import ReactMarkdown from 'react-markdown';
 
@@ -71,6 +71,7 @@ export default function NewReflectionModal({ isOpen, onClose, preSelectedProject
         }
     }, [initialData, preSelectedProjectId, isOpen]);
 
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     useEffect(() => {
         if (isOpen) {
             fetchProjects();

@@ -7,7 +7,13 @@ export class ReflectionsService {
 
   async createReflection(
     projectId: string,
-    data: { title: string; type: string; content: string; impact?: string; tools?: string[] },
+    data: {
+      title: string;
+      type: string;
+      content: string;
+      impact?: string;
+      tools?: string[];
+    },
   ) {
     return this.prisma.reflection.create({
       data: {
@@ -81,9 +87,9 @@ export class ReflectionsService {
     limit?: number;
   }) {
     const { userId, projectId, search, type, impact, limit = 50 } = filters;
-    
-    const where: any = {};
-    const and: any[] = [];
+
+    const where: Record<string, any> = {};
+    const and: Record<string, any>[] = [];
 
     if (userId) and.push({ project: { userId } });
     if (projectId) and.push({ projectId });
@@ -120,7 +126,16 @@ export class ReflectionsService {
     });
   }
 
-  async updateReflection(id: string, data: { title?: string; type?: string; content?: string; impact?: string; tools?: string[] }) {
+  async updateReflection(
+    id: string,
+    data: {
+      title?: string;
+      type?: string;
+      content?: string;
+      impact?: string;
+      tools?: string[];
+    },
+  ) {
     return this.prisma.reflection.update({
       where: { id },
       data,

@@ -3,8 +3,8 @@
 import { use, useEffect, useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { 
-    ArrowLeft, Plus, History, Loader2, 
-    ArrowUpRight, FileText, Calendar, Tag, Pencil, Trash2
+    ArrowLeft, Plus, Loader2, 
+    FileText, Calendar, Tag, Pencil, Trash2
 } from 'lucide-react';
 import { useReflectionModal } from '@/store/useReflectionModal';
 import api from '@/lib/api';
@@ -208,7 +208,7 @@ export default function ProjectDetailsPage({ params }: { params: Promise<{ id: s
                         <div style={{ background: 'var(--ink)', color: 'var(--paper)', borderRadius: 12, padding: 24 }}>
                             <h4 style={{ fontSize: 15, fontWeight: 500, marginBottom: 12 }}>Project Analysis</h4>
                             <p style={{ fontSize: 12, lineHeight: 1.6, color: '#ece8df', fontWeight: 300, fontStyle: 'italic' }}>
-                                "Documenting your technical evolution here creates a searchable archive of your growth as an engineer."
+                                &quot;Documenting your technical evolution here creates a searchable archive of your growth as an engineer.&quot;
                             </p>
                         </div>
                     </div>

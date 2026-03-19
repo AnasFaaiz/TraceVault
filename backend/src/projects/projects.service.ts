@@ -32,7 +32,10 @@ export class ProjectsService {
     });
   }
 
-  async updateProject(id: string, data: { name?: string; description?: string; techStack?: string[] }) {
+  async updateProject(
+    id: string,
+    data: { name?: string; description?: string; techStack?: string[] },
+  ) {
     return this.prisma.project.update({
       where: { id },
       data,

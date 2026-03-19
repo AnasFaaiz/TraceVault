@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowUpRight, Loader2, Filter, X } from 'lucide-react';
+import { ArrowUpRight, Loader2 } from 'lucide-react';
 import { useEffect, useState, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import api from '@/lib/api';
@@ -22,12 +22,6 @@ const TYPE_STYLES: Record<string, { label: string; bg: string; color: string }> 
     decision: { label: 'Decision', bg: '#edf7f4', color: '#2a6b5e' },
     tradeoff: { label: 'Tradeoff', bg: '#fdf6e8', color: '#854f0b' },
     lesson: { label: 'Lesson', bg: '#f0f0f8', color: '#4a4a8a' },
-};
-
-const IMPACT_STYLES: Record<string, { label: string; color: string }> = {
-    minor: { label: 'Minor', color: 'var(--muted)' },
-    significant: { label: 'Significant', color: 'var(--amber)' },
-    pivotal: { label: 'Pivotal', color: 'var(--rust)' },
 };
 
 function FeedContent() {
@@ -75,7 +69,7 @@ function FeedContent() {
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: 32, flexWrap: 'wrap', gap: 20 }}>
                     <div>
                         <p style={{ fontFamily: "'Instrument Serif', Georgia, serif", fontSize: 'clamp(20px, 2.5vw, 28px)', fontWeight: 400, color: '#0e0d0b', marginBottom: 4 }}>
-                            {query ? <>Search Results for <em style={{ color: 'var(--amber)' }}>"{query}"</em></> : <>Community <em style={{ color: 'var(--amber)' }}>Insights</em></>}
+                            {query ? <>Search Results for <em style={{ color: 'var(--amber)' }}>&quot;{query}&quot;</em></> : <>Community <em style={{ color: 'var(--amber)' }}>Insights</em></>}
                         </p>
                         <p style={{ fontSize: 14, fontWeight: 300, color: 'var(--muted)', lineHeight: 1.6 }}>
                             {query ? `Found ${feedItems.length} matching reflections in the vault.` : 'Latest engineering reflections from across the vault.'}

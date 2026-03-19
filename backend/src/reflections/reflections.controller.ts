@@ -35,7 +35,7 @@ export class ReflectionsController {
       type: body.type,
       content: body.content,
       impact: body.impact,
-      tools: body.tools
+      tools: body.tools,
     });
   }
 
@@ -85,7 +85,14 @@ export class ReflectionsController {
   @Patch(':id')
   updateReflection(
     @Param('id') id: string,
-    @Body() body: { title?: string; type?: string; content?: string; impact?: string; tools?: string[] },
+    @Body()
+    body: {
+      title?: string;
+      type?: string;
+      content?: string;
+      impact?: string;
+      tools?: string[];
+    },
   ) {
     return this.reflectionsService.updateReflection(id, body);
   }

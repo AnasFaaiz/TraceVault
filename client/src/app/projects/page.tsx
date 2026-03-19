@@ -1,6 +1,6 @@
 "use client";
 
-import { Folder, Plus, Trash2, Cpu, FileText, Loader2, ArrowUpRight, Github, Pencil } from 'lucide-react';
+import { Folder, Plus, Trash2, FileText, Loader2, ArrowUpRight, Github, Pencil } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import api from '@/lib/api';
@@ -137,7 +137,7 @@ export default function ProjectsPage() {
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 32 }}>
                     <div>
                         <p style={{ fontFamily: 'var(--serif)', fontSize: 28, color: 'var(--ink)' }}>Engineering <em style={{ color: 'var(--amber)' }}>Vaults</em></p>
-                        <p style={{ fontSize: 14, color: 'var(--muted)', marginTop: 4 }}>Manage the technical projects you're tracking.</p>
+                        <p style={{ fontSize: 14, color: 'var(--muted)', marginTop: 4 }}>Manage the technical projects you&apos;re tracking.</p>
                     </div>
                     <button 
                         onClick={() => { setIsCreating(true); setGithubUrl(''); }}
