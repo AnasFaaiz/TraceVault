@@ -1,4 +1,5 @@
 import axios from 'axios';
+import { useAuthStore } from '@/store/useAuthStore';
 
 const api = axios.create({
   baseURL: 'http://localhost:4000',
@@ -9,11 +10,9 @@ const api = axios.create({
 
 // Interceptor to add JWT token to requests
 api.interceptors.request.use((config) => {
-  if (typeof window !== 'undefined') {
-    const token = localStorage.getItem('token');
-    if (token) {
-      config.headers.Authorization = `Bearer ${token}`;
-    }
+  const token = useAuthStore.getState().token;
+  if (token) {
+    config.headers.Authorization = `Bearer ${token}`;
   }
   return config;
 });
@@ -24,10 +23,8 @@ api.interceptors.response.use(
   (error) => {
     if (error.response?.status === 401) {
       if (typeof window !== 'undefined') {
-        localStorage.removeItem('token');
-        // We can't easily call useAuthStore.getState().logout() here 
-        // because it might cause circular dependency if not careful,
-        // but we can at least clear the token and redirect.
+        const logout = useAuthStore.getState().logout;
+        logout(); // Clear Zustand store AND localStorage
         window.location.href = '/login';
       }
     }

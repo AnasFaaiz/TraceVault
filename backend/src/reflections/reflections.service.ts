@@ -7,7 +7,7 @@ export class ReflectionsService {
 
   async createReflection(
     projectId: string,
-    data: { title: string; type: string; content: string },
+    data: { title: string; type: string; content: string; impact?: string; tools?: string[] },
   ) {
     return this.prisma.reflection.create({
       data: {
@@ -35,6 +35,40 @@ export class ReflectionsService {
         createdAt: 'desc',
       },
       take: limit,
+    });
+  }
+
+  async getGlobalFeed(limit: number = 20) {
+    return this.prisma.reflection.findMany({
+      include: {
+        project: {
+          include: {
+            user: {
+              select: {
+                name: true,
+              },
+            },
+          },
+        },
+      },
+      orderBy: {
+        createdAt: 'desc',
+      },
+      take: limit,
+    });
+  }
+
+  async getProjectReflections(projectId: string) {
+    return this.prisma.project.findUnique({
+      where: { id: projectId },
+      include: {
+        reflections: {
+          orderBy: { createdAt: 'desc' },
+        },
+        _count: {
+          select: { reflections: true },
+        },
+      },
     });
   }
 }

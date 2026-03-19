@@ -6,6 +6,7 @@ import {
   Req,
   UseGuards,
   Query,
+  Param,
 } from '@nestjs/common';
 import { ReflectionsService } from './reflections.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
@@ -23,12 +24,16 @@ export class ReflectionsController {
       title: string;
       type: string;
       content: string;
+      impact?: string;
+      tools?: string[];
     },
   ) {
     return this.reflectionsService.createReflection(body.projectId, {
       title: body.title,
       type: body.type,
       content: body.content,
+      impact: body.impact,
+      tools: body.tools
     });
   }
 
@@ -42,5 +47,16 @@ export class ReflectionsController {
       req.user.userId,
       limit ? parseInt(limit) : 5,
     );
+  }
+
+  @Get('feed')
+  getFeed(@Query('limit') limit?: string) {
+    return this.reflectionsService.getGlobalFeed(limit ? parseInt(limit) : 20);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Get('project/:projectId')
+  getProjectReflections(@Param('projectId') projectId: string) {
+    return this.reflectionsService.getProjectReflections(projectId);
   }
 }

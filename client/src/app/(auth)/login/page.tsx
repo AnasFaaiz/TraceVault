@@ -26,7 +26,7 @@ export default function LoginPage() {
 
   useEffect(() => {
     if (_hasHydrated && token) {
-      router.push('/dashboard');
+      router.push('/feed');
     }
   }, [_hasHydrated, token, router]);
 
@@ -41,7 +41,7 @@ export default function LoginPage() {
       const response = await api.post('/auth/login', data);
       const { user, accessToken } = response.data;
       setAuth(user, accessToken);
-      router.push('/dashboard');
+      router.push('/feed');
     } catch (err) {
       const axiosError = err as { response?: { data?: { message?: string } } };
       setError(axiosError.response?.data?.message || 'Login failed. Please check your credentials.');

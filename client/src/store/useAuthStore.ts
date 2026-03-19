@@ -24,15 +24,9 @@ export const useAuthStore = create<AuthState>()(
       _hasHydrated: false,
       setAuth: (user, token) => {
         set({ user, token });
-        if (typeof window !== 'undefined') {
-          localStorage.setItem('token', token);
-        }
       },
       logout: () => {
         set({ user: null, token: null });
-        if (typeof window !== 'undefined') {
-          localStorage.removeItem('token');
-        }
       },
       setHasHydrated: (state) => {
         set({ _hasHydrated: state });
