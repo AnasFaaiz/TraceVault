@@ -6,6 +6,8 @@ import {
   Req,
   UseGuards,
   Query,
+  Patch,
+  Delete,
   Param,
 } from '@nestjs/common';
 import { ReflectionsService } from './reflections.service';
@@ -77,5 +79,20 @@ export class ReflectionsController {
       type,
       impact,
     });
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Patch(':id')
+  updateReflection(
+    @Param('id') id: string,
+    @Body() body: { title?: string; type?: string; content?: string; impact?: string; tools?: string[] },
+  ) {
+    return this.reflectionsService.updateReflection(id, body);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Delete(':id')
+  deleteReflection(@Param('id') id: string) {
+    return this.reflectionsService.deleteReflection(id);
   }
 }

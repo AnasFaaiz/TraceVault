@@ -119,4 +119,17 @@ export class ReflectionsService {
       take: limit,
     });
   }
+
+  async updateReflection(id: string, data: { title?: string; type?: string; content?: string; impact?: string; tools?: string[] }) {
+    return this.prisma.reflection.update({
+      where: { id },
+      data,
+    });
+  }
+
+  async deleteReflection(id: string) {
+    return this.prisma.reflection.delete({
+      where: { id },
+    });
+  }
 }

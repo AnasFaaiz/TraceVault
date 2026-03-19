@@ -21,7 +21,7 @@ interface AppLayoutProps {
 
 export default function AppLayout({ children, title, subtitle, projectId: preSelectedProjectId, onReflectionCreated }: AppLayoutProps) {
     const { user, logout, token, _hasHydrated } = useAuthStore();
-    const { isOpen, close, open, projectId: modalProjectId } = useReflectionModal();
+    const { isOpen, close, open, projectId: modalProjectId, initialData } = useReflectionModal();
     const router = useRouter();
     const pathname = usePathname();
     const [searchQuery, setSearchQuery] = useState('');
@@ -192,6 +192,7 @@ export default function AppLayout({ children, title, subtitle, projectId: preSel
                 isOpen={isOpen} 
                 onClose={close} 
                 preSelectedProjectId={modalProjectId || preSelectedProjectId}
+                initialData={initialData}
                 onSuccess={onReflectionCreated}
             />
         </div>

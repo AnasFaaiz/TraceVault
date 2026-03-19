@@ -4,7 +4,7 @@ import { use, useEffect, useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { 
     ArrowLeft, Plus, History, Loader2, 
-    ArrowUpRight, FileText, Calendar, Tag
+    ArrowUpRight, FileText, Calendar, Tag, Pencil, Trash2
 } from 'lucide-react';
 import { useReflectionModal } from '@/store/useReflectionModal';
 import api from '@/lib/api';
@@ -15,6 +15,7 @@ interface Reflection {
     title: string;
     type: string;
     content: string;
+    impact: string;
     createdAt: string;
 }
 
@@ -56,6 +57,17 @@ export default function ProjectDetailsPage({ params }: { params: Promise<{ id: s
     useEffect(() => {
         fetchProjectDetails();
     }, [fetchProjectDetails]);
+
+    const handleDeleteReflection = async (id: string) => {
+        if (!confirm('Are you sure you want to delete this reflection? This action cannot be undone.')) return;
+        try {
+            await api.delete(`/reflections/${id}`);
+            fetchProjectDetails();
+        } catch (err) {
+            console.error('Failed to delete reflection', err);
+            alert('Failed to delete reflection.');
+        }
+    };
 
     const formatDate = (dateStr: string) => {
         return new Date(dateStr).toLocaleDateString('en-US', { 
@@ -140,7 +152,21 @@ export default function ProjectDetailsPage({ params }: { params: Promise<{ id: s
                                                     }}>
                                                         {typeStyle.label}
                                                     </span>
-                                                    <span style={{ fontSize: 11, color: 'var(--muted)', fontFamily: 'var(--mono)' }}>{formatDate(r.createdAt)}</span>
+                                                    <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                                                        <span style={{ fontSize: 11, color: 'var(--muted)', fontFamily: 'var(--mono)' }}>{formatDate(r.createdAt)}</span>
+                                                        <div style={{ display: 'flex', gap: 10, paddingLeft: 12, borderLeft: '1px solid var(--border)' }}>
+                                                            <button 
+                                                                onClick={() => open(projectId, { ...r, projectId })}
+                                                                style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--muted)', display: 'flex', alignItems: 'center' }}>
+                                                                <Pencil size={13} />
+                                                            </button>
+                                                            <button 
+                                                                onClick={() => handleDeleteReflection(r.id)}
+                                                                style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--rust)', display: 'flex', alignItems: 'center' }}>
+                                                                <Trash2 size={13} />
+                                                            </button>
+                                                        </div>
+                                                    </div>
                                                 </div>
                                                 <h3 style={{ fontSize: 18, fontWeight: 500, color: 'var(--ink)', marginBottom: 12 }}>{r.title}</h3>
                                                 <div style={{ fontSize: 14, color: 'var(--muted)', lineHeight: 1.6, whiteSpace: 'pre-wrap' }}>

@@ -14,6 +14,14 @@ interface NewReflectionModalProps {
     isOpen: boolean;
     onClose: () => void;
     preSelectedProjectId?: string;
+    initialData?: {
+        id?: string;
+        projectId: string;
+        title: string;
+        type: string;
+        impact: string;
+        content: string;
+    };
     onSuccess?: () => void;
 }
 
@@ -37,7 +45,7 @@ const TEMPLATES: Record<string, string> = {
     lesson: `### What Happened\nA brief recount...\n\n### Key Takeaway\nThe core lesson learned...\n\n### Future Action\nHow this changes future implementation.`,
 };
 
-export default function NewReflectionModal({ isOpen, onClose, preSelectedProjectId, onSuccess }: NewReflectionModalProps) {
+export default function NewReflectionModal({ isOpen, onClose, preSelectedProjectId, initialData, onSuccess }: NewReflectionModalProps) {
     const [projects, setProjects] = useState<Project[]>([]);
     const [loading, setLoading] = useState(false);
     const [isPreview, setIsPreview] = useState(false);
@@ -50,10 +58,18 @@ export default function NewReflectionModal({ isOpen, onClose, preSelectedProject
     });
 
     useEffect(() => {
-        if (preSelectedProjectId) {
-            setFormData(prev => ({ ...prev, projectId: preSelectedProjectId }));
+        if (initialData) {
+            setFormData({
+                projectId: initialData.projectId,
+                title: initialData.title,
+                type: initialData.type,
+                impact: initialData.impact,
+                content: initialData.content
+            });
+        } else if (preSelectedProjectId) {
+            setFormData(prev => ({ ...prev, projectId: preSelectedProjectId, title: '', type: 'decision', impact: 'minor', content: TEMPLATES.decision }));
         }
-    }, [preSelectedProjectId]);
+    }, [initialData, preSelectedProjectId, isOpen]);
 
     useEffect(() => {
         if (isOpen) {
@@ -74,7 +90,7 @@ export default function NewReflectionModal({ isOpen, onClose, preSelectedProject
         try {
             const res = await api.get('/projects');
             setProjects(res.data);
-            if (!preSelectedProjectId && res.data.length > 0) {
+            if (!preSelectedProjectId && !initialData && res.data.length > 0) {
                 setFormData(prev => ({ ...prev, projectId: res.data[0].id }));
             }
         } catch (err) {
@@ -86,14 +102,21 @@ export default function NewReflectionModal({ isOpen, onClose, preSelectedProject
         e.preventDefault();
         setLoading(true);
         try {
-            await api.post('/reflections', formData);
-            setFormData({
-                projectId: preSelectedProjectId || (projects[0]?.id || ''),
-                title: '',
-                type: 'decision',
-                impact: 'minor',
-                content: TEMPLATES.decision
-            });
+            if (initialData?.id) {
+                await api.patch(`/reflections/${initialData.id}`, formData);
+            } else {
+                await api.post('/reflections', formData);
+            }
+            
+            if (!initialData) {
+                setFormData({
+                    projectId: preSelectedProjectId || (projects[0]?.id || ''),
+                    title: '',
+                    type: 'decision',
+                    impact: 'minor',
+                    content: TEMPLATES.decision
+                });
+            }
             if (onSuccess) onSuccess();
             onClose();
         } catch (err) {
@@ -128,7 +151,7 @@ export default function NewReflectionModal({ isOpen, onClose, preSelectedProject
                             <Type size={20} color="var(--ink)" />
                         </div>
                         <div>
-                            <h2 style={{ fontFamily: 'var(--serif)', fontSize: 24, color: 'var(--ink)' }}>Engineering Entry</h2>
+                            <h2 style={{ fontFamily: 'var(--serif)', fontSize: 24, color: 'var(--ink)' }}>{initialData ? 'Update Entry' : 'Engineering Entry'}</h2>
                             <p style={{ fontFamily: 'var(--mono)', fontSize: 11, color: 'var(--muted)', marginTop: 2, letterSpacing: '0.04em' }}>Technical logic & architectural archiving</p>
                         </div>
                     </div>
@@ -147,7 +170,7 @@ export default function NewReflectionModal({ isOpen, onClose, preSelectedProject
                                 required
                                 value={formData.projectId}
                                 onChange={e => setFormData({ ...formData, projectId: e.target.value })}
-                                disabled={!!preSelectedProjectId}
+                                disabled={!!preSelectedProjectId || !!initialData}
                                 style={{ width: '100%', padding: '12px', borderRadius: 8, border: '1px solid var(--border)', background: '#fff', fontSize: 13, outline: 'none' }}
                             >
                                 {projects.map(p => (
@@ -271,7 +294,7 @@ export default function NewReflectionModal({ isOpen, onClose, preSelectedProject
                                 type="submit" 
                                 disabled={loading}
                                 style={{ padding: '14px 40px', background: 'var(--ink)', color: 'var(--paper)', border: 'none', borderRadius: 10, fontSize: 15, fontWeight: 500, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 10, transition: 'all 0.2s' }}>
-                                {loading ? <Loader2 size={18} className="animate-spin" /> : <><Send size={18} /> Seal Archive Entry</>}
+                                {loading ? <Loader2 size={18} className="animate-spin" /> : <><Send size={18} /> {initialData ? 'Update Entry' : 'Seal Archive Entry'}</>}
                             </button>
                         </div>
                     </div>

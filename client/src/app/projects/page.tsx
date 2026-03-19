@@ -1,6 +1,6 @@
 "use client";
 
-import { Folder, Plus, Trash2, Cpu, FileText, Loader2, ArrowUpRight, Github } from 'lucide-react';
+import { Folder, Plus, Trash2, Cpu, FileText, Loader2, ArrowUpRight, Github, Pencil } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import api from '@/lib/api';
@@ -23,6 +23,7 @@ export default function ProjectsPage() {
     const [isImporting, setIsImporting] = useState(false);
     const [githubUrl, setGithubUrl] = useState('');
     const [newProject, setNewProject] = useState({ name: '', description: '', techStack: '' });
+    const [editingProjectId, setEditingProjectId] = useState<string | null>(null);
 
     useEffect(() => {
         fetchProjects();
@@ -85,18 +86,48 @@ export default function ProjectsPage() {
         }
     };
 
+    const handleDeleteProject = async (id: string, name: string) => {
+        if (!confirm(`Are you sure you want to delete "${name}"? This will permanently erase ALL reflections in this vault.`)) return;
+        try {
+            await api.delete(`/projects/${id}`);
+            fetchProjects();
+        } catch (err) {
+            console.error('Failed to delete project', err);
+            alert('Failed to delete project.');
+        }
+    };
+
+    const handleEditProject = (project: Project) => {
+        setNewProject({
+            name: project.name,
+            description: project.description || '',
+            techStack: project.techStack?.join(', ') || ''
+        });
+        setEditingProjectId(project.id);
+        setIsCreating(true);
+        setGithubUrl('');
+    };
+
     const handleCreateProject = async (e: React.FormEvent) => {
         e.preventDefault();
         try {
-            await api.post('/projects', {
+            const data = {
                 ...newProject,
                 techStack: newProject.techStack.split(',').map(t => t.trim()).filter(t => t !== ''),
-            });
+            };
+
+            if (editingProjectId) {
+                await api.patch(`/projects/${editingProjectId}`, data);
+            } else {
+                await api.post('/projects', data);
+            }
+
             setIsCreating(false);
+            setEditingProjectId(null);
             setNewProject({ name: '', description: '', techStack: '' });
             fetchProjects();
         } catch (err) {
-            console.error('Failed to create project', err);
+            console.error('Failed to save project', err);
         }
     };
 
@@ -118,8 +149,10 @@ export default function ProjectsPage() {
                 {isCreating && (
                     <div style={{ background: '#fff', border: '1px solid var(--border)', borderRadius: 12, padding: 32, marginBottom: 32, animation: 'fadeUp 0.3s ease both', boxShadow: '0 4px 30px rgba(0,0,0,0.03)' }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
-                            <h3 style={{ fontSize: 18, fontWeight: 500, fontFamily: 'var(--serif)' }}>Initialize New Project Vault</h3>
-                            <button onClick={() => setIsCreating(false)} style={{ background: 'none', border: 'none', color: 'var(--muted)', cursor: 'pointer', fontSize: 13, fontFamily: 'var(--mono)' }}>Close</button>
+                            <h3 style={{ fontSize: 18, fontWeight: 500, fontFamily: 'var(--serif)' }}>
+                                {editingProjectId ? 'Update Project Scope' : 'Initialize New Project Vault'}
+                            </h3>
+                            <button onClick={() => { setIsCreating(false); setEditingProjectId(null); }} style={{ background: 'none', border: 'none', color: 'var(--muted)', cursor: 'pointer', fontSize: 13, fontFamily: 'var(--mono)' }}>Close</button>
                         </div>
 
                         {/* GitHub Import Section */}
@@ -179,7 +212,7 @@ export default function ProjectsPage() {
                                 />
                             </div>
                             <button type="submit" style={{ padding: '14px', background: 'var(--amber)', color: '#fff', border: 'none', borderRadius: 8, fontSize: 14, fontWeight: 500, cursor: 'pointer', marginTop: 12, transition: 'background 0.2s' }}>
-                                Initialize Project Archive
+                                {editingProjectId ? 'Update Archive Metadata' : 'Initialize Project Archive'}
                             </button>
                         </form>
                     </div>
@@ -198,6 +231,11 @@ export default function ProjectsPage() {
                                         <Folder size={20} />
                                     </div>
                                     <div style={{ display: 'flex', gap: 8 }}>
+                                        <button 
+                                            onClick={() => handleEditProject(project)}
+                                            style={{ background: 'var(--paper)', border: '1px solid var(--border)', borderRadius: 4, width: 28, height: 28, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: 'var(--muted)' }}>
+                                            <Pencil size={12} />
+                                        </button>
                                         <div style={{ display: 'flex', alignItems: 'center', gap: 4, fontFamily: 'var(--mono)', fontSize: 10, color: 'var(--muted)', background: 'var(--paper)', padding: '4px 8px', borderRadius: 4, border: '1px solid var(--border)' }}>
                                             <FileText size={10} /> {project._count.reflections}
                                         </div>
@@ -222,7 +260,9 @@ export default function ProjectsPage() {
                                         style={{ flex: 1, padding: '12px', background: 'var(--ink)', color: 'var(--paper)', border: 'none', borderRadius: 8, fontSize: 13, fontWeight: 500, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, transition: 'opacity 0.2s' }}>
                                         View Reflections <ArrowUpRight size={15} />
                                     </button>
-                                    <button style={{ width: 44, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'transparent', color: 'var(--rust)', border: '1px solid var(--border)', borderRadius: 8, cursor: 'pointer', transition: 'all 0.2s' }}>
+                                    <button 
+                                        onClick={() => handleDeleteProject(project.id, project.name)}
+                                        style={{ width: 44, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'transparent', color: 'var(--rust)', border: '1px solid var(--border)', borderRadius: 8, cursor: 'pointer', transition: 'all 0.2s' }}>
                                         <Trash2 size={16} />
                                     </button>
                                 </div>

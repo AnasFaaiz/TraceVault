@@ -31,4 +31,17 @@ export class ProjectsService {
       orderBy: { createdAt: 'desc' },
     });
   }
+
+  async updateProject(id: string, data: { name?: string; description?: string; techStack?: string[] }) {
+    return this.prisma.project.update({
+      where: { id },
+      data,
+    });
+  }
+
+  async deleteProject(id: string) {
+    return this.prisma.project.delete({
+      where: { id },
+    });
+  }
 }
