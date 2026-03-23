@@ -4,7 +4,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import AuthLayout from '@/components/auth/AuthLayout';
-import { Loader2 } from 'lucide-react';
+import { Eye, EyeOff, Loader2 } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import styles from '@/app/auth.module.css';
 import api from '@/lib/api';
@@ -21,6 +21,7 @@ type LoginFormValues = z.infer<typeof loginSchema>;
 export default function LoginPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [showPassword, setShowPassword] = useState(false);
   const { setAuth, token, _hasHydrated } = useAuthStore();
   const router = useRouter();
 
@@ -79,10 +80,18 @@ export default function LoginPage() {
           <div className={styles.inputWrapper}>
             <input
               {...register('password')}
-              type="password"
+              type={showPassword ? "text" : "password"}
               placeholder="••••••••"
-              className={styles.input}
+              className={`${styles.input} ${styles.passwordInput}`}
             />
+            <button
+              type="button"
+              onClick={() => setShowPassword(!showPassword)}
+              className={styles.passwordToggle}
+              aria-label={showPassword ? 'Hide password' : 'Show password'}
+              >
+                {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+            </button>
           </div>
           {errors.password && <p className={styles.errorText}>{errors.password.message}</p>}
         </div>
