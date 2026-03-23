@@ -20,6 +20,7 @@ export class ReflectionsController {
   @UseGuards(JwtAuthGuard)
   @Post()
   createReflection(
+    @Req() req: { user: { userId: string } },
     @Body()
     body: {
       projectId: string;
@@ -30,7 +31,7 @@ export class ReflectionsController {
       tools?: string[];
     },
   ) {
-    return this.reflectionsService.createReflection(body.projectId, {
+    return this.reflectionsService.createReflection(req.user.userId, body.projectId, {
       title: body.title,
       type: body.type,
       content: body.content,
@@ -58,8 +59,14 @@ export class ReflectionsController {
 
   @UseGuards(JwtAuthGuard)
   @Get('project/:projectId')
-  getProjectReflections(@Param('projectId') projectId: string) {
-    return this.reflectionsService.getProjectReflections(projectId);
+  getProjectReflections(
+    @Param('projectId') projectId: string,
+    @Req() req: { user: { userId: string } },
+  ) {
+    return this.reflectionsService.getProjectReflections(
+      req.user.userId,
+      projectId,
+    );
   }
 
   @UseGuards(JwtAuthGuard)
@@ -85,6 +92,7 @@ export class ReflectionsController {
   @Patch(':id')
   updateReflection(
     @Param('id') id: string,
+    @Req() req: { user: { userId: string } },
     @Body()
     body: {
       title?: string;
@@ -94,12 +102,15 @@ export class ReflectionsController {
       tools?: string[];
     },
   ) {
-    return this.reflectionsService.updateReflection(id, body);
+    return this.reflectionsService.updateReflection(req.user.userId, id, body);
   }
 
   @UseGuards(JwtAuthGuard)
   @Delete(':id')
-  deleteReflection(@Param('id') id: string) {
-    return this.reflectionsService.deleteReflection(id);
+  deleteReflection(
+    @Param('id') id: string,
+    @Req() req: { user: { userId: string } },
+  ) {
+    return this.reflectionsService.deleteReflection(req.user.userId, id);
   }
 }

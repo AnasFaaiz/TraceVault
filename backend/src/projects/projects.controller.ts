@@ -43,13 +43,17 @@ export class ProjectsController {
   updateProject(
     @Param('id') id: string,
     @Body() body: { name?: string; description?: string; techStack?: string[] },
+    @Req() req: { user: { userId: string } },
   ) {
-    return this.projectsService.updateProject(id, body);
+    return this.projectsService.updateProject(req.user.userId, id, body);
   }
 
   @UseGuards(JwtAuthGuard)
   @Delete(':id')
-  deleteProject(@Param('id') id: string) {
-    return this.projectsService.deleteProject(id);
+  deleteProject(
+    @Param('id') id: string,
+    @Req() req: { user: { userId: string } },
+  ) {
+    return this.projectsService.deleteProject(req.user.userId, id);
   }
 }

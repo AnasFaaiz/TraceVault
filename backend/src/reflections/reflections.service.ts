@@ -1,11 +1,49 @@
-import { Injectable } from '@nestjs/common';
+import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 
 @Injectable()
 export class ReflectionsService {
   constructor(private prisma: PrismaService) {}
 
+  private async assertProjectOwner(userId: string, projectId: string) {
+    const project = await this.prisma.project.findUnique({
+      where: { id: projectId },
+      select: { id: true, userId: true },
+    });
+
+    if (!project) {
+      throw new NotFoundException('Project not found');
+    }
+
+    if (project.userId !== userId) {
+      throw new ForbiddenException('You do not have access to this project');
+    }
+  }
+
+  private async assertReflectionOwner(userId: string, reflectionId: string) {
+    const reflection = await this.prisma.reflection.findUnique({
+      where: { id: reflectionId },
+      select: {
+        id: true,
+        project: {
+          select: {
+            userId: true,
+          },
+        },
+      },
+    });
+
+    if (!reflection) {
+      throw new NotFoundException('Reflection not found');
+    }
+
+    if (reflection.project.userId !== userId) {
+      throw new ForbiddenException('You do not have access to this reflection');
+    }
+  }
+
   async createReflection(
+    userId: string,
     projectId: string,
     data: {
       title: string;
@@ -15,6 +53,8 @@ export class ReflectionsService {
       tools?: string[];
     },
   ) {
+    await this.assertProjectOwner(userId, projectId);
+
     return this.prisma.reflection.create({
       data: {
         ...data,
@@ -64,7 +104,9 @@ export class ReflectionsService {
     });
   }
 
-  async getProjectReflections(projectId: string) {
+  async getProjectReflections(userId: string, projectId: string) {
+    await this.assertProjectOwner(userId, projectId);
+
     return this.prisma.project.findUnique({
       where: { id: projectId },
       include: {
@@ -127,6 +169,7 @@ export class ReflectionsService {
   }
 
   async updateReflection(
+    userId: string,
     id: string,
     data: {
       title?: string;
@@ -136,13 +179,17 @@ export class ReflectionsService {
       tools?: string[];
     },
   ) {
+    await this.assertReflectionOwner(userId, id);
+
     return this.prisma.reflection.update({
       where: { id },
       data,
     });
   }
 
-  async deleteReflection(id: string) {
+  async deleteReflection(userId: string, id: string) {
+    await this.assertReflectionOwner(userId, id);
+
     return this.prisma.reflection.delete({
       where: { id },
     });
