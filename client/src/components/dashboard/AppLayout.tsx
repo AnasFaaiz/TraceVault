@@ -6,7 +6,7 @@ import {
 } from 'lucide-react';
 import { useAuthStore } from '@/store/useAuthStore';
 import { useRouter, usePathname } from 'next/navigation';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useReflectionModal } from '@/store/useReflectionModal';
 import NewReflectionModal from './NewReflectionModal';
@@ -17,14 +17,19 @@ interface AppLayoutProps {
     subtitle: string;
     projectId?: string;
     onReflectionCreated?: () => void;
+    headerActions?: React.ReactNode;
 }
 
-export default function AppLayout({ children, title, subtitle, projectId: preSelectedProjectId, onReflectionCreated }: AppLayoutProps) {
+export default function AppLayout({ children, title, subtitle, projectId: preSelectedProjectId, onReflectionCreated, headerActions }: AppLayoutProps) {
     const { user, logout, token, _hasHydrated } = useAuthStore();
     const { isOpen, close, open, projectId: modalProjectId, initialData } = useReflectionModal();
     const router = useRouter();
     const pathname = usePathname();
     const [searchQuery, setSearchQuery] = useState('');
+    const [isSidebarHovered, setIsSidebarHovered] = useState(false);
+    const [isAddMenuOpen, setIsAddMenuOpen] = useState(false);
+    const addMenuRef = useRef<HTMLDivElement | null>(null);
+    const isSidebarOpen = isSidebarHovered;
 
     useEffect(() => {
         if (!_hasHydrated) return;
@@ -38,6 +43,24 @@ export default function AppLayout({ children, title, subtitle, projectId: preSel
             setSearchQuery('');
         }
     };
+
+    useEffect(() => {
+        const handleOutsideClick = (event: MouseEvent) => {
+            if (
+                addMenuRef.current &&
+                !addMenuRef.current.contains(event.target as Node)
+            ) {
+                setIsAddMenuOpen(false);
+            }
+        };
+
+        document.addEventListener('mousedown', handleOutsideClick);
+        return () => document.removeEventListener('mousedown', handleOutsideClick);
+    }, []);
+
+    useEffect(() => {
+        setIsAddMenuOpen(false);
+    }, [pathname]);
 
     if (!_hasHydrated || (token && !user)) {
         return (
@@ -60,7 +83,7 @@ export default function AppLayout({ children, title, subtitle, projectId: preSel
     ];
 
     return (
-        <div style={{ display: 'flex', height: '100vh', fontFamily: "'Geist', system-ui, sans-serif", background: '#f5f2eb', overflow: 'hidden' }}>
+        <div style={{ position: 'relative', height: '100vh', fontFamily: "'Geist', system-ui, sans-serif", background: '#f5f2eb', overflow: 'hidden' }}>
             <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Geist:wght@300;400;500&family=DM+Mono:wght@400;500&display=swap');
         :root {
@@ -93,17 +116,29 @@ export default function AppLayout({ children, title, subtitle, projectId: preSel
 
             {/* ── Sidebar ── */}
             <aside style={{
-                width: 220, flexShrink: 0, background: '#ece8df',
+                width: isSidebarOpen ? 220 : 70, background: '#ece8df',
                 borderRight: '1px solid var(--border)',
                 display: 'flex', flexDirection: 'column',
-                padding: '24px 16px',
-            }}>
+                padding: isSidebarOpen ? '24px 16px' : '24px 10px',
+                position: 'fixed',
+                left: 0,
+                top: 0,
+                bottom: 0,
+                zIndex: 40,
+                transition: 'width 0.2s ease, padding 0.2s ease',
+                overflow: 'hidden',
+            }}
+                onMouseEnter={() => setIsSidebarHovered(true)}
+                onMouseLeave={() => setIsSidebarHovered(false)}
+            >
                 {/* Logo */}
-                <Link href="/" style={{ display: 'flex', alignItems: 'center', gap: 9, marginBottom: 36, paddingLeft: 4, textDecoration: 'none' }}>
+                <Link href="/" style={{ display: 'flex', alignItems: 'center', gap: 9, marginBottom: 36, paddingLeft: isSidebarOpen ? 4 : 0, justifyContent: isSidebarOpen ? 'flex-start' : 'center', textDecoration: 'none' }}>
                     <div style={{ width: 28, height: 28, background: '#0e0d0b', borderRadius: 6, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                         <Terminal size={14} color="#f5f2eb" />
                     </div>
-                    <span style={{ fontFamily: 'var(--mono)', fontSize: 14, fontWeight: 500, color: '#0e0d0b', letterSpacing: '-0.01em' }}>TraceVault</span>
+                    {isSidebarOpen && (
+                        <span style={{ fontFamily: 'var(--mono)', fontSize: 14, fontWeight: 500, color: '#0e0d0b', letterSpacing: '-0.01em' }}>TraceVault</span>
+                    )}
                 </Link>
 
                 {/* Nav */}
@@ -113,35 +148,40 @@ export default function AppLayout({ children, title, subtitle, projectId: preSel
                             key={item.id}
                             href={item.href}
                             className={`nav-btn ${pathname === item.href ? 'active' : ''}`}
+                            title={item.label}
+                            style={{ justifyContent: isSidebarOpen ? 'flex-start' : 'center', padding: isSidebarOpen ? '9px 14px' : '9px 10px' }}
                         >
                             {item.icon}
-                            {item.label}
+                            {isSidebarOpen && item.label}
                         </Link>
                     ))}
                 </nav>
 
                 {/* User + logout */}
                 <div style={{ borderTop: '1px solid var(--border)', paddingTop: 16 }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: isSidebarOpen ? 'flex-start' : 'center', gap: 10, marginBottom: 12 }}>
                         <div style={{ width: 32, height: 32, borderRadius: '50%', background: '#0e0d0b', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'var(--mono)', fontSize: 12, color: '#f5f2eb', fontWeight: 500, flexShrink: 0 }}>
                             {initials}
                         </div>
-                        <div style={{ overflow: 'hidden' }}>
-                            <p style={{ fontSize: 13, fontWeight: 500, color: '#0e0d0b', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{user.name}</p>
-                            <p style={{ fontFamily: 'var(--mono)', fontSize: 10, color: 'var(--muted)' }}>Engineer</p>
-                        </div>
+                        {isSidebarOpen && (
+                            <div style={{ overflow: 'hidden' }}>
+                                <p style={{ fontSize: 13, fontWeight: 500, color: '#0e0d0b', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{user.name}</p>
+                                <p style={{ fontFamily: 'var(--mono)', fontSize: 10, color: 'var(--muted)' }}>Engineer</p>
+                            </div>
+                        )}
                     </div>
                     <button
                         onClick={logout}
-                        style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 8, padding: '8px 10px', border: 'none', background: 'transparent', cursor: 'pointer', fontFamily: 'var(--mono)', fontSize: 11, color: 'var(--muted)', borderRadius: 6, transition: 'color 0.15s', letterSpacing: '0.04em' }}
+                        title="Sign out"
+                        style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: isSidebarOpen ? 'flex-start' : 'center', gap: 8, padding: '8px 10px', border: 'none', background: 'transparent', cursor: 'pointer', fontFamily: 'var(--mono)', fontSize: 11, color: 'var(--muted)', borderRadius: 6, transition: 'color 0.15s', letterSpacing: '0.04em' }}
                     >
-                        <LogOut size={12} /> Sign out
+                        <LogOut size={12} /> {isSidebarOpen && 'Sign out'}
                     </button>
                 </div>
             </aside>
 
             {/* ── Main ── */}
-            <main style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column' }}>
+            <main style={{ marginLeft: 70, width: 'calc(100% - 70px)', height: '100vh', overflowY: 'auto', display: 'flex', flexDirection: 'column' }}>
                 {/* Topbar */}
                 <header style={{ padding: '16px 36px', borderBottom: '1px solid var(--border)', background: '#f5f2eb', display: 'flex', justifyContent: 'space-between', alignItems: 'center', position: 'sticky', top: 0, zIndex: 10 }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 40, flex: 1 }}>
@@ -176,11 +216,70 @@ export default function AppLayout({ children, title, subtitle, projectId: preSel
                         </form>
                     </div>
 
-                    <button 
-                        onClick={() => open(preSelectedProjectId)}
-                        style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '9px 16px', background: '#0e0d0b', color: '#f5f2eb', border: 'none', borderRadius: 8, fontFamily: 'var(--mono)', fontSize: 12, fontWeight: 500, cursor: 'pointer', letterSpacing: '0.01em', transition: 'background 0.2s', marginLeft: 24, flexShrink: 0 }}>
-                        <Plus size={14} /> New reflection
-                    </button>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginLeft: 24, flexShrink: 0 }}>
+                        {headerActions}
+
+                        <div ref={addMenuRef} style={{ position: 'relative' }}>
+                        <button
+                            type="button"
+                            onClick={() => setIsAddMenuOpen((prev) => !prev)}
+                            aria-label="Add options"
+                            style={{
+                                width: 38,
+                                height: 38,
+                                borderRadius: '50%',
+                                border: 'none',
+                                background: '#0e0d0b',
+                                color: '#f5f2eb',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                cursor: 'pointer',
+                                transition: 'transform 0.15s, background 0.2s',
+                            }}
+                        >
+                            <Plus size={16} />
+                        </button>
+
+                        {isAddMenuOpen && (
+                            <div style={{
+                                position: 'absolute', right: 0, top: 46,
+                                width: 180, background: '#fff', border: '1px solid var(--border)',
+                                borderRadius: 10, boxShadow: '0 8px 24px rgba(14,13,11,0.12)',
+                                padding: 8, display: 'flex', flexDirection: 'column', gap: 6,
+                            }}>
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        setIsAddMenuOpen(false);
+                                        open(preSelectedProjectId);
+                                    }}
+                                    style={{
+                                        width: '100%', textAlign: 'left', border: 'none', cursor: 'pointer',
+                                        background: 'transparent', borderRadius: 8, padding: '9px 10px',
+                                        fontFamily: 'var(--mono)', fontSize: 11, color: 'var(--ink)',
+                                    }}
+                                >
+                                    + New reflection
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        setIsAddMenuOpen(false);
+                                        router.push('/projects?create=1');
+                                    }}
+                                    style={{
+                                        width: '100%', textAlign: 'left', border: 'none', cursor: 'pointer',
+                                        background: 'transparent', borderRadius: 8, padding: '9px 10px',
+                                        fontFamily: 'var(--mono)', fontSize: 11, color: 'var(--ink)',
+                                    }}
+                                >
+                                    + New project
+                                </button>
+                            </div>
+                        )}
+                        </div>
+                    </div>
                 </header>
 
                 <div style={{ padding: '32px 36px', display: 'flex', flexDirection: 'column', gap: 32 }}>

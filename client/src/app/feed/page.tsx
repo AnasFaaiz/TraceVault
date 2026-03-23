@@ -1,8 +1,8 @@
 "use client";
 
-import { ArrowUpRight, Loader2 } from 'lucide-react';
-import { useEffect, useState, Suspense } from 'react';
-import { useSearchParams } from 'next/navigation';
+import { ArrowUpRight, Filter, Loader2 } from 'lucide-react';
+import { useEffect, useRef, useState, Suspense } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import api from '@/lib/api';
 import AppLayout from '@/components/dashboard/AppLayout';
 
@@ -11,6 +11,7 @@ interface Reflection {
     title: string;
     type: string;
     project: { 
+        id: string;
         name: string;
         user?: { name: string };
     };
@@ -25,6 +26,7 @@ const TYPE_STYLES: Record<string, { label: string; bg: string; color: string }> 
 };
 
 function FeedContent() {
+    const router = useRouter();
     const searchParams = useSearchParams();
     const query = searchParams.get('q');
     
@@ -32,6 +34,22 @@ function FeedContent() {
     const [loading, setLoading] = useState(true);
     const [activeType, setActiveType] = useState<string | null>(null);
     const [activeImpact, setActiveImpact] = useState<string | null>(null);
+    const [isFilterMenuOpen, setIsFilterMenuOpen] = useState(false);
+    const filterMenuRef = useRef<HTMLDivElement | null>(null);
+
+    useEffect(() => {
+        const handleOutsideClick = (event: MouseEvent) => {
+            if (
+                filterMenuRef.current &&
+                !filterMenuRef.current.contains(event.target as Node)
+            ) {
+                setIsFilterMenuOpen(false);
+            }
+        };
+
+        document.addEventListener('mousedown', handleOutsideClick);
+        return () => document.removeEventListener('mousedown', handleOutsideClick);
+    }, []);
 
     useEffect(() => {
         const fetchFeed = async () => {
@@ -63,10 +81,149 @@ function FeedContent() {
         return new Date(dateStr).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
     };
 
+    const activeFilterCount = [activeType, activeImpact].filter(Boolean).length;
+
+    const filterButton = (
+        <div ref={filterMenuRef} style={{ position: 'relative' }}>
+            <button
+                type="button"
+                onClick={() => setIsFilterMenuOpen((prev) => !prev)}
+                style={{
+                    height: 36,
+                    borderRadius: 10,
+                    border: '1px solid var(--border)',
+                    background: '#fff',
+                    color: 'var(--ink)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 8,
+                    padding: '0 12px',
+                    cursor: 'pointer',
+                    fontFamily: 'var(--mono)',
+                    fontSize: 11,
+                    letterSpacing: '0.04em',
+                    textTransform: 'uppercase',
+                }}
+            >
+                <Filter size={14} />
+                Filters
+                {activeFilterCount > 0 && (
+                    <span style={{
+                        minWidth: 18,
+                        height: 18,
+                        borderRadius: 999,
+                        background: 'var(--ink)',
+                        color: '#fff',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        fontSize: 10,
+                        padding: '0 5px',
+                        lineHeight: 1,
+                    }}>
+                        {activeFilterCount}
+                    </span>
+                )}
+            </button>
+
+            {isFilterMenuOpen && (
+                <div style={{
+                    position: 'absolute',
+                    right: 0,
+                    top: 44,
+                    width: 360,
+                    background: '#fff',
+                    border: '1px solid var(--border)',
+                    borderRadius: 12,
+                    boxShadow: '0 10px 28px rgba(14,13,11,0.12)',
+                    padding: 12,
+                    zIndex: 50,
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: 12,
+                }}>
+                    <div>
+                        <p style={{ fontFamily: 'var(--mono)', fontSize: 10, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 8 }}>
+                            Reflection Type
+                        </p>
+                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+                            <button
+                                type="button"
+                                onClick={() => setActiveType(null)}
+                                style={{ padding: '6px 10px', fontSize: 11, border: '1px solid ' + (activeType === null ? 'var(--ink)' : 'var(--border)'), background: activeType === null ? 'var(--ink)' : '#fff', color: activeType === null ? '#fff' : 'var(--muted)', borderRadius: 8, cursor: 'pointer', fontFamily: 'var(--mono)' }}
+                            >
+                                All Types
+                            </button>
+                            {Object.entries(TYPE_STYLES).map(([key, style]) => (
+                                <button
+                                    key={key}
+                                    type="button"
+                                    onClick={() => setActiveType(key)}
+                                    style={{ padding: '6px 10px', fontSize: 11, border: '1px solid ' + (activeType === key ? 'var(--ink)' : 'var(--border)'), background: activeType === key ? 'var(--ink)' : '#fff', color: activeType === key ? '#fff' : 'var(--muted)', borderRadius: 8, cursor: 'pointer', fontFamily: 'var(--mono)' }}
+                                >
+                                    {style.label}
+                                </button>
+                            ))}
+                        </div>
+                    </div>
+
+                    <div>
+                        <p style={{ fontFamily: 'var(--mono)', fontSize: 10, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 8 }}>
+                            Impact
+                        </p>
+                        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                            {['minor', 'significant', 'pivotal'].map(impact => (
+                                <button
+                                    key={impact}
+                                    type="button"
+                                    onClick={() => setActiveImpact(activeImpact === impact ? null : impact)}
+                                    style={{
+                                        padding: '6px 12px',
+                                        fontSize: 10,
+                                        fontFamily: 'var(--mono)',
+                                        borderRadius: 8,
+                                        border: '1px solid ' + (activeImpact === impact ? 'var(--ink)' : 'var(--border)'),
+                                        background: activeImpact === impact ? 'var(--ink)' : '#fff',
+                                        color: activeImpact === impact ? '#fff' : 'var(--muted)',
+                                        cursor: 'pointer',
+                                        textTransform: 'uppercase',
+                                        letterSpacing: '0.05em'
+                                    }}
+                                >
+                                    {impact}
+                                </button>
+                            ))}
+                        </div>
+                    </div>
+
+                    <button
+                        type="button"
+                        onClick={() => {
+                            setActiveType(null);
+                            setActiveImpact(null);
+                        }}
+                        style={{
+                            alignSelf: 'flex-end',
+                            border: 'none',
+                            background: 'transparent',
+                            color: 'var(--amber)',
+                            cursor: 'pointer',
+                            fontFamily: 'var(--mono)',
+                            fontSize: 11,
+                            letterSpacing: '0.03em',
+                        }}
+                    >
+                        Reset filters
+                    </button>
+                </div>
+            )}
+        </div>
+    );
+
     return (
-        <AppLayout title="Engineering Thoughts" subtitle="Community Feed">
+        <AppLayout title="Community Feed" subtitle="/feed" headerActions={filterButton}>
             <div className="fade-up">
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: 32, flexWrap: 'wrap', gap: 20 }}>
+                <div style={{ marginBottom: 32 }}>
                     <div>
                         <p style={{ fontFamily: "'Instrument Serif', Georgia, serif", fontSize: 'clamp(20px, 2.5vw, 28px)', fontWeight: 400, color: '#0e0d0b', marginBottom: 4 }}>
                             {query ? <>Search Results for <em style={{ color: 'var(--amber)' }}>&quot;{query}&quot;</em></> : <>Community <em style={{ color: 'var(--amber)' }}>Insights</em></>}
@@ -74,43 +231,6 @@ function FeedContent() {
                         <p style={{ fontSize: 14, fontWeight: 300, color: 'var(--muted)', lineHeight: 1.6 }}>
                             {query ? `Found ${feedItems.length} matching reflections in the vault.` : 'Latest engineering reflections from across the vault.'}
                         </p>
-                    </div>
-
-                    {/* Filter Rail */}
-                    <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
-                        <div style={{ display: 'flex', background: 'var(--paper-dark)', padding: 3, borderRadius: 8, border: '1px solid var(--border)' }}>
-                            <button 
-                                onClick={() => setActiveType(null)}
-                                style={{ padding: '6px 12px', fontSize: 11, border: 'none', background: activeType === null ? 'var(--ink)' : 'transparent', color: activeType === null ? '#fff' : 'var(--muted)', borderRadius: 6, cursor: 'pointer', fontFamily: 'var(--mono)', transition: 'all 0.2s' }}>
-                                All Types
-                            </button>
-                            {Object.entries(TYPE_STYLES).map(([key, style]) => (
-                                <button 
-                                    key={key}
-                                    onClick={() => setActiveType(key)}
-                                    style={{ padding: '6px 12px', fontSize: 11, border: 'none', background: activeType === key ? 'var(--ink)' : 'transparent', color: activeType === key ? '#fff' : 'var(--muted)', borderRadius: 6, cursor: 'pointer', fontFamily: 'var(--mono)', transition: 'all 0.2s' }}>
-                                    {style.label}
-                                </button>
-                            ))}
-                        </div>
-
-                        <div style={{ display: 'flex', gap: 8 }}>
-                            {['minor', 'significant', 'pivotal'].map(impact => (
-                                <button
-                                    key={impact}
-                                    onClick={() => setActiveImpact(activeImpact === impact ? null : impact)}
-                                    style={{
-                                        padding: '6px 12px', fontSize: 10, fontFamily: 'var(--mono)', 
-                                        borderRadius: 8, border: '1px solid ' + (activeImpact === impact ? 'var(--ink)' : 'var(--border)'),
-                                        background: activeImpact === impact ? 'var(--ink)' : '#fff',
-                                        color: activeImpact === impact ? '#fff' : 'var(--muted)',
-                                        cursor: 'pointer', transition: 'all 0.2s', textTransform: 'uppercase', letterSpacing: '0.05em'
-                                    }}
-                                >
-                                    {impact}
-                                </button>
-                            ))}
-                        </div>
                     </div>
                 </div>
 
@@ -147,7 +267,11 @@ function FeedContent() {
                                     <p style={{ fontSize: 14, color: 'var(--muted)', lineHeight: 1.6, marginBottom: 16 }}>
                                         In project <span style={{ color: 'var(--ink)', fontWeight: 400 }}>{item.project.name}</span>
                                     </p>
-                                    <button style={{ color: 'var(--amber)', background: 'none', border: 'none', fontSize: 12, fontWeight: 500, fontFamily: 'var(--mono)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4 }}>
+                                    <button
+                                        type="button"
+                                        onClick={() => router.push(`/projects/${item.project.id}`)}
+                                        style={{ color: 'var(--amber)', background: 'none', border: 'none', fontSize: 12, fontWeight: 500, fontFamily: 'var(--mono)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4 }}
+                                    >
                                         Read reflection <ArrowUpRight size={14} />
                                     </button>
                                 </div>

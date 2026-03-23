@@ -1,8 +1,8 @@
 "use client";
 
-import { Folder, Plus, Trash2, FileText, Loader2, ArrowUpRight, Github, Pencil } from 'lucide-react';
-import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { Folder, Trash2, FileText, Loader2, ArrowUpRight, Github, Pencil } from 'lucide-react';
+import { Suspense, useEffect, useState } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import api from '@/lib/api';
 import AppLayout from '@/components/dashboard/AppLayout';
 
@@ -15,8 +15,9 @@ interface Project {
     _count: { reflections: number };
 }
 
-export default function ProjectsPage() {
+function ProjectsPageContent() {
     const router = useRouter();
+    const searchParams = useSearchParams();
     const [projects, setProjects] = useState<Project[]>([]);
     const [loading, setLoading] = useState(true);
     const [isCreating, setIsCreating] = useState(false);
@@ -28,6 +29,14 @@ export default function ProjectsPage() {
     useEffect(() => {
         fetchProjects();
     }, []);
+
+    useEffect(() => {
+        if (searchParams.get('create') === '1') {
+            setIsCreating(true);
+            setEditingProjectId(null);
+            setGithubUrl('');
+        }
+    }, [searchParams]);
 
     const fetchProjects = async () => {
         try {
@@ -134,17 +143,6 @@ export default function ProjectsPage() {
     return (
         <AppLayout title="Project Repository" subtitle="/projects">
             <div className="fade-up">
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 32 }}>
-                    <div>
-                        <p style={{ fontFamily: 'var(--serif)', fontSize: 28, color: 'var(--ink)' }}>Engineering <em style={{ color: 'var(--amber)' }}>Vaults</em></p>
-                        <p style={{ fontSize: 14, color: 'var(--muted)', marginTop: 4 }}>Manage the technical projects you&apos;re tracking.</p>
-                    </div>
-                    <button 
-                        onClick={() => { setIsCreating(true); setGithubUrl(''); }}
-                        style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '10px 18px', background: 'var(--ink)', color: 'var(--paper)', border: 'none', borderRadius: 8, fontFamily: 'var(--mono)', fontSize: 12, fontWeight: 500, cursor: 'pointer' }}>
-                        <Plus size={16} /> New Project
-                    </button>
-                </div>
 
                 {isCreating && (
                     <div style={{ background: '#fff', border: '1px solid var(--border)', borderRadius: 12, padding: 32, marginBottom: 32, animation: 'fadeUp 0.3s ease both', boxShadow: '0 4px 30px rgba(0,0,0,0.03)' }}>
@@ -271,16 +269,27 @@ export default function ProjectsPage() {
                     ) : (
                         <div style={{ gridColumn: '1/-1', padding: 60, textAlign: 'center', background: '#fff', borderRadius: 12, border: '1px dotted var(--border)' }}>
                             <p style={{ fontFamily: 'var(--serif)', fontSize: 24, fontStyle: 'italic', marginBottom: 12 }}>No projects founded.</p>
-                            <p style={{ fontSize: 14, color: 'var(--muted)', marginBottom: 24 }}>Start by creating your first project to track engineering growth.</p>
-                            <button 
-                                onClick={() => setIsCreating(true)}
-                                style={{ padding: '12px 24px', background: 'var(--amber)', color: '#fff', border: 'none', borderRadius: 8, fontSize: 13, fontWeight: 500, cursor: 'pointer' }}>
-                                Initialize My First Vault
-                            </button>
+                            <p style={{ fontSize: 14, color: 'var(--muted)', marginBottom: 24 }}>Use the + button in the header to initialize your first vault.</p>
                         </div>
                     )}
                 </div>
             </div>
         </AppLayout>
+    );
+}
+
+export default function ProjectsPage() {
+    return (
+        <Suspense
+            fallback={
+                <AppLayout title="Project Repository" subtitle="/projects">
+                    <div className="fade-up" style={{ display: 'flex', justifyContent: 'center', padding: 40 }}>
+                        <Loader2 size={32} className="animate-spin" color="var(--amber)" />
+                    </div>
+                </AppLayout>
+            }
+        >
+            <ProjectsPageContent />
+        </Suspense>
     );
 }
