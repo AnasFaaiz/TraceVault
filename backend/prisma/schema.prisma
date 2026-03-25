@@ -8,14 +8,16 @@ datasource db {
 }
 
 model User {
-  id          String         @id @default(uuid())
-  email       String         @unique
-  password    String
-  name        String
-  createdAt   DateTime       @default(now())
-  updatedAt   DateTime       @updatedAt
-  projects    Project[]
-  reflections Reflection[]
+  id             String       @id @default(uuid())
+  email          String       @unique
+  password       String
+  name           String
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+  projects       Project[]
+  reflections    Reflection[]
+  reactions      Reaction[]
+  vaultedEntries VaultEntry[]
 }
 
 model Project {
@@ -33,23 +35,53 @@ model Project {
 model Reflection {
   id            String   @id @default(uuid())
   title         String
-  category      String   // design_decision, technical_challenge, tradeoff, lesson_learned, bug_autopsy, integration_note
-  template_type String?  // Structured template type (same as category for new entries)
+  category      String // design_decision, technical_challenge, tradeoff, lesson_learned, bug_autopsy, integration_note
+  template_type String? // Structured template type (same as category for new entries)
   impact        String   @default("minor")
   tags          String[]
-  
+
   // NEW: Structured fields (JSONB in PostgreSQL)
-  fields        Json?    // Structured key-value pairs for the selected template
-  
+  fields Json? // Structured key-value pairs for the selected template
+
   // OLD: Markdown content (nullable for backward compatibility)
-  content       String?  // Keep for old migrated entries as fallback
-  
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
-  
-  projectId     String
-  project       Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  
-  userId        String   // Author ID (who created this reflection)
-  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  content String? // Keep for old migrated entries as fallback
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  projectId String
+  project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  userId String // Author ID (who created this reflection)
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  reactions Reaction[]
+  vaultedBy VaultEntry[]
+}
+
+model Reaction {
+  id        String   @id @default(uuid())
+  type      String // "useful" | "felt_this" | "critical" | "noted"
+  createdAt DateTime @default(now())
+
+  entryId String
+  entry   Reflection @relation(fields: [entryId], references: [id], onDelete: Cascade)
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([entryId, userId, type])
+}
+
+model VaultEntry {
+  id        String   @id @default(uuid())
+  vaultedAt DateTime @default(now())
+
+  entryId String
+  entry    Reflection @relation(fields: [entryId], references: [id], onDelete: Cascade)
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, entryId])
 }

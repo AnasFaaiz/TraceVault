@@ -1,0 +1,41 @@
+.tabsContainer {
+  position: relative;
+  margin-bottom: 1.25rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.tabs {
+  display: flex;
+  gap: 1.5rem;
+  position: relative;
+}
+
+.tab {
+  padding: 0.8rem 0;
+  background: none;
+  border: none;
+  color: var(--muted);
+  font-size: 0.95rem;
+  font-weight: 500;
+  letter-spacing: 0.035em;
+  cursor: pointer;
+  transition: color 0.2s ease;
+}
+
+.tab:hover {
+  color: var(--ink);
+}
+
+.tab.active {
+  color: var(--ink);
+  font-weight: 700;
+}
+
+.underline {
+  position: absolute;
+  bottom: -1px;
+  height: 2px;
+  width: 120px;
+  background: var(--ink);
+  transition: left 0.3s ease;
+}

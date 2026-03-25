@@ -1,20 +1,12 @@
 import { Suspense } from 'react';
-import FeedContent from './feed-content';
+import VaultContent from './VaultContent';
 import AppLayout from '@/components/dashboard/AppLayout';
 import SkeletonCard from '@/components/feed/SkeletonCard';
-import styles from './feed.module.css';
+import styles from './vault.module.css';
 
-export const metadata = {
-  title: 'Community Feed | TraceVault',
-  description: 'Discover insights from the engineering community',
-};
-
-function FeedSkeleton() {
+function VaultSkeleton() {
   return (
-    <AppLayout
-      title="Community Feed"
-      subtitle="Discover and engage with reflections from your engineering community"
-    >
+    <AppLayout title="Vault" subtitle="Your saved reflections and insights">
       <div className={styles.container}>
         <div className={styles.feed}>
           <div className={styles.feedGrid}>
@@ -28,10 +20,10 @@ function FeedSkeleton() {
   );
 }
 
-export default function FeedPage() {
+export default function VaultPage() {
   return (
-    <Suspense fallback={<FeedSkeleton />}>
-      <FeedContent />
+    <Suspense fallback={<VaultSkeleton />}>
+      <VaultContent />
     </Suspense>
   );
 }

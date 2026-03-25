@@ -2,7 +2,7 @@
 
 import {
     Terminal, Layout, Folder, History, LogOut,
-    Settings, Plus, Globe, Loader2, Search
+    Settings, Plus, Globe, Loader2, Search, Archive
 } from 'lucide-react';
 import { useAuthStore } from '@/store/useAuthStore';
 import { useRouter, usePathname } from 'next/navigation';
@@ -30,6 +30,18 @@ export default function AppLayout({ children, title, subtitle, projectId: preSel
     const [isAddMenuOpen, setIsAddMenuOpen] = useState(false);
     const addMenuRef = useRef<HTMLDivElement | null>(null);
     const isSidebarOpen = isSidebarHovered;
+    const isVaultPage = pathname.startsWith('/vault');
+    const isFeedPage = pathname.startsWith('/feed');
+    const searchTargetPath = isVaultPage ? '/vault' : '/feed';
+    const searchPlaceholder = isVaultPage
+        ? 'Search your Vault... (Title, Content)'
+        : isFeedPage
+            ? 'Search the Feed... (Title, Tags, Author)'
+            : 'Search reflections...';
+    const modifierKey =
+        typeof window !== 'undefined' && navigator.platform.toLowerCase().includes('mac')
+            ? '⌘'
+            : 'Ctrl';
 
     useEffect(() => {
         if (!_hasHydrated) return;
@@ -39,7 +51,7 @@ export default function AppLayout({ children, title, subtitle, projectId: preSel
     const handleSearch = (e: React.FormEvent) => {
         e.preventDefault();
         if (searchQuery.trim()) {
-            router.push(`/feed?q=${encodeURIComponent(searchQuery.trim())}`);
+            router.push(`${searchTargetPath}?q=${encodeURIComponent(searchQuery.trim())}`);
             setSearchQuery('');
         }
     };
@@ -78,6 +90,7 @@ export default function AppLayout({ children, title, subtitle, projectId: preSel
         { id: 'feed', icon: <Globe size={16} />, label: 'Community Feed', href: '/feed' },
         { id: 'dashboard', icon: <Layout size={16} />, label: 'Personal Dashboard', href: '/dashboard' },
         { id: 'projects', icon: <Folder size={16} />, label: 'My Projects', href: '/projects' },
+        { id: 'vault', icon: <Archive size={16} />, label: 'Vault', href: '/vault' },
         { id: 'reflections', icon: <History size={16} />, label: 'History', href: '/history' },
         { id: 'settings', icon: <Settings size={16} />, label: 'Settings', href: '/settings' },
     ];
@@ -198,7 +211,7 @@ export default function AppLayout({ children, title, subtitle, projectId: preSel
                             <input 
                                 value={searchQuery}
                                 onChange={e => setSearchQuery(e.target.value)}
-                                placeholder="Search the Vault... (Title, Content)" 
+                                placeholder={searchPlaceholder}
                                 style={{
                                     width: '100%', padding: '10px 14px 10px 40px',
                                     borderRadius: 10, border: '1px solid var(--border)',
@@ -210,7 +223,7 @@ export default function AppLayout({ children, title, subtitle, projectId: preSel
                                 onBlur={(e) => e.target.style.background = 'var(--paper-dark)'}
                             />
                             <div style={{ position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)', display: 'flex', gap: 4 }}>
-                                <span style={{ padding: '2px 6px', background: 'var(--paper)', border: '1px solid var(--border)', borderRadius: 4, fontSize: 9, color: 'var(--muted)', fontFamily: 'var(--mono)' }}>⌘</span>
+                                <span style={{ padding: '2px 6px', background: 'var(--paper)', border: '1px solid var(--border)', borderRadius: 4, fontSize: 9, color: 'var(--muted)', fontFamily: 'var(--mono)' }}>{modifierKey}</span>
                                 <span style={{ padding: '2px 6px', background: 'var(--paper)', border: '1px solid var(--border)', borderRadius: 4, fontSize: 9, color: 'var(--muted)', fontFamily: 'var(--mono)' }}>K</span>
                             </div>
                         </form>
@@ -282,7 +295,7 @@ export default function AppLayout({ children, title, subtitle, projectId: preSel
                     </div>
                 </header>
 
-                <div style={{ padding: '32px 36px', display: 'flex', flexDirection: 'column', gap: 32 }}>
+                <div style={{ padding: '24px 28px', display: 'flex', flexDirection: 'column', gap: 24 }}>
                     {children}
                 </div>
             </main>

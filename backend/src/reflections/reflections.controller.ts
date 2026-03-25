@@ -183,4 +183,117 @@ export class ReflectionsController {
   ) {
     return this.reflectionsService.deleteReflection(req.user.userId, id);
   }
+
+  /**
+   * Get personalized feed with view options (For You, From Your Stack, Trending)
+   */
+  @UseGuards(JwtAuthGuard)
+  @Get('feed/personalized')
+  async getPersonalizedFeed(
+    @Req() req: { user: { userId: string } },
+    @Query('view') view: 'for_you' | 'from_your_stack' | 'trending' = 'for_you',
+    @Query('tags') tags?: string,
+    @Query('template_type') templateTypes?: string,
+    @Query('impact') impact?: string,
+    @Query('confidence') confidence?: string,
+    @Query('page') page?: string,
+    @Query('limit') limit?: string,
+  ) {
+    const tagArray = tags ? tags.split(',') : [];
+    const templateTypeArray = templateTypes ? templateTypes.split(',') : [];
+
+    return this.reflectionsService.getFeed(
+      req.user.userId,
+      view,
+      {
+        tags: tagArray,
+        templateTypes: templateTypeArray,
+        impact,
+        confidence,
+      },
+      {
+        page: page ? parseInt(page) : 1,
+        limit: limit ? parseInt(limit) : 20,
+      },
+    );
+  }
+
+  /**
+   * Get all unique tags
+   */
+  @Get('tags')
+  async getTags(@Query('search') search?: string) {
+    const allTags = await this.reflectionsService.getAllTags();
+    
+    if (search) {
+      const searchLower = search.toLowerCase();
+      return allTags.filter((tag) =>
+        tag.toLowerCase().includes(searchLower),
+      );
+    }
+
+    return allTags;
+  }
+
+  /**
+   * Get reaction counts for an entry (no auth required)
+   */
+  @Get(':id/reactions')
+  async getReactions(
+    @Param('id') entryId: string,
+    @Req() req?: { user?: { userId: string } },
+  ) {
+    return this.reflectionsService.getReactionCounts(
+      entryId,
+      req?.user?.userId,
+    );
+  }
+
+  /**
+   * Add or toggle a reaction on an entry
+   */
+  @UseGuards(JwtAuthGuard)
+  @Post(':id/reactions')
+  async toggleReaction(
+    @Param('id') entryId: string,
+    @Body() body: { type: 'useful' | 'felt_this' | 'critical' | 'noted' },
+    @Req() req: { user: { userId: string } },
+  ) {
+    return this.reflectionsService.toggleReaction(
+      entryId,
+      req.user.userId,
+      body.type,
+    );
+  }
+
+  /**
+   * Toggle vault for an entry
+   */
+  @UseGuards(JwtAuthGuard)
+  @Post(':id/vault')
+  async toggleVault(
+    @Param('id') entryId: string,
+    @Req() req: { user: { userId: string } },
+  ) {
+    return this.reflectionsService.toggleVault(entryId, req.user.userId);
+  }
+
+  /**
+   * Get user's vaulted entries
+   */
+  @UseGuards(JwtAuthGuard)
+  @Get('vault/list')
+  async getVaultedEntries(
+    @Req() req: { user: { userId: string } },
+    @Query('page') page?: string,
+    @Query('limit') limit?: string,
+  ) {
+    return this.reflectionsService.getVaultedEntries(
+      req.user.userId,
+      {
+        page: page ? parseInt(page) : 1,
+        limit: limit ? parseInt(limit) : 20,
+      },
+    );
+  }
 }
