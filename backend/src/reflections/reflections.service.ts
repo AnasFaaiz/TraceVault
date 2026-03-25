@@ -1,5 +1,7 @@
 import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
+import { validateFields } from './template-definitions';
+import type { TemplateType } from './template-definitions';
 
 @Injectable()
 export class ReflectionsService {
@@ -42,27 +44,55 @@ export class ReflectionsService {
     }
   }
 
+  /**
+   * Create a new reflection with structured fields
+   */
   async createReflection(
     userId: string,
     projectId: string,
     data: {
       title: string;
-      type: string;
-      content: string;
+      category: string;
+      template_type: string;
       impact?: string;
-      tools?: string[];
+      tags?: string[];
+      fields?: Record<string, any>;
+      content?: string; // Legacy support
     },
   ) {
     await this.assertProjectOwner(userId, projectId);
 
+    // Validate structured fields if provided
+    if (data.fields && data.template_type) {
+      const validation = validateFields(
+        data.template_type as TemplateType,
+        data.fields,
+      );
+      if (!validation.valid) {
+        throw new Error(
+          `Missing required fields: ${validation.missingFields.join(', ')}`,
+        );
+      }
+    }
+
     return this.prisma.reflection.create({
       data: {
-        ...data,
+        title: data.title,
+        category: data.category,
+        template_type: data.template_type,
+        impact: data.impact || 'minor',
+        tags: data.tags || [],
+        ...(data.fields !== undefined ? { fields: data.fields } : {}),
+        ...(data.content !== undefined ? { content: data.content } : {}), // Legacy support
         projectId,
+        userId,
       },
     });
   }
 
+  /**
+   * Get recent reflections for a user
+   */
   async getRecentReflections(userId: string, limit: number = 5) {
     return this.prisma.reflection.findMany({
       where: {
@@ -84,6 +114,9 @@ export class ReflectionsService {
     });
   }
 
+  /**
+   * Get global feed
+   */
   async getGlobalFeed(limit: number = 20) {
     return this.prisma.reflection.findMany({
       include: {
@@ -104,6 +137,9 @@ export class ReflectionsService {
     });
   }
 
+  /**
+   * Get reflections for a specific project
+   */
   async getProjectReflections(userId: string, projectId: string) {
     await this.assertProjectOwner(userId, projectId);
 
@@ -120,22 +156,54 @@ export class ReflectionsService {
     });
   }
 
+  /**
+   * Get single reflection by ID
+   */
+  async getReflectionById(userId: string, id: string) {
+    const reflection = await this.prisma.reflection.findUnique({
+      where: { id },
+      include: {
+        project: {
+          include: {
+            user: {
+              select: { name: true },
+            },
+          },
+        },
+      },
+    });
+
+    if (!reflection) {
+      throw new NotFoundException('Reflection not found');
+    }
+
+    // Check authorization
+    if (reflection.project.userId !== userId) {
+      throw new ForbiddenException('You do not have access to this reflection');
+    }
+
+    return reflection;
+  }
+
+  /**
+   * Get filtered reflections with search, type, impact filters
+   */
   async getFilteredReflections(filters: {
     userId?: string;
     projectId?: string;
     search?: string;
-    type?: string;
+    category?: string;
     impact?: string;
     limit?: number;
   }) {
-    const { userId, projectId, search, type, impact, limit = 50 } = filters;
+    const { userId, projectId, search, category, impact, limit = 50 } = filters;
 
     const where: Record<string, any> = {};
     const and: Record<string, any>[] = [];
 
     if (userId) and.push({ project: { userId } });
     if (projectId) and.push({ projectId });
-    if (type) and.push({ type });
+    if (category) and.push({ category });
     if (impact) and.push({ impact });
     if (search) {
       and.push({
@@ -168,18 +236,36 @@ export class ReflectionsService {
     });
   }
 
+  /**
+   * Update an existing reflection
+   */
   async updateReflection(
     userId: string,
     id: string,
     data: {
       title?: string;
-      type?: string;
-      content?: string;
+      category?: string;
+      template_type?: string;
       impact?: string;
-      tools?: string[];
+      tags?: string[];
+      fields?: Record<string, any>;
+      content?: string; // Legacy support
     },
   ) {
     await this.assertReflectionOwner(userId, id);
+
+    // Validate structured fields if provided
+    if (data.fields && data.template_type) {
+      const validation = validateFields(
+        data.template_type as TemplateType,
+        data.fields,
+      );
+      if (!validation.valid) {
+        throw new Error(
+          `Missing required fields: ${validation.missingFields.join(', ')}`,
+        );
+      }
+    }
 
     return this.prisma.reflection.update({
       where: { id },
@@ -187,6 +273,9 @@ export class ReflectionsService {
     });
   }
 
+  /**
+   * Delete a reflection
+   */
   async deleteReflection(userId: string, id: string) {
     await this.assertReflectionOwner(userId, id);
 

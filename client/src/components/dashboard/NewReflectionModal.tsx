@@ -1,9 +1,15 @@
 "use client";
 
-import { useState, useEffect } from 'react';
-import { X, Loader2, Send, Eye, Type } from 'lucide-react';
+import { useState, useEffect, useRef } from 'react';
+import { X, Loader2, Send, AlertCircle, ChevronRight } from 'lucide-react';
 import api from '@/lib/api';
-import ReactMarkdown from 'react-markdown';
+import { 
+    getAllTemplates,
+    getTemplate, 
+    validateFields,
+    TemplateType,
+    FieldDefinition
+} from '@/lib/templateDefinitions';
 
 interface Project {
     id: string;
@@ -18,19 +24,16 @@ interface NewReflectionModalProps {
         id?: string;
         projectId: string;
         title: string;
-        type: string;
-        impact: string;
-        content: string;
+        category?: string;
+        template_type?: string;
+        content?: string;
+        impact?: string;
+        tags?: string[];
+        fields?: Record<string, string | string[] | boolean>;
+        type?: string; // legacy
     };
     onSuccess?: () => void;
 }
-
-const TYPES = [
-    { value: 'decision', label: 'Design Decision', desc: 'Why you chose X over Y' },
-    { value: 'challenge', label: 'Technical Challenge', desc: 'A hurdle you faced and solved' },
-    { value: 'tradeoff', label: 'Tradeoff', desc: 'The compromise you made' },
-    { value: 'lesson', label: 'Lesson Learned', desc: 'A key takeaway for future self' },
-];
 
 const IMPACTS = [
     { value: 'minor', label: 'Minor', color: 'var(--muted)' },
@@ -38,54 +41,106 @@ const IMPACTS = [
     { value: 'pivotal', label: 'Pivotal', color: 'var(--rust)' },
 ];
 
-const TEMPLATES: Record<string, string> = {
-    decision: `### Context\nBriefly describe the scenario...\n\n### Decision\nWhat path did you choose?\n\n### Results\nWhat was the outcome?`,
-    challenge: `### Problem\nThe technical hurdle faced...\n\n### Solution\nHow it was overcome...\n\n### Impact\nHow the codebase improved...`,
-    tradeoff: `### The Choice\nOption A vs Option B...\n\n### Tradeoff\nWhat was sacrificed for what benefit?\n\n### Rationale\nWhy this was acceptable for the project context.`,
-    lesson: `### What Happened\nA brief recount...\n\n### Key Takeaway\nThe core lesson learned...\n\n### Future Action\nHow this changes future implementation.`,
+const TEMPLATE_TYPES: TemplateType[] = [
+    'design_decision',
+    'technical_challenge',
+    'tradeoff',
+    'lesson_learned',
+    'bug_autopsy',
+    'integration_note'
+];
+
+const normalizeTemplateType = (value?: string): TemplateType => {
+    if (value && TEMPLATE_TYPES.includes(value as TemplateType)) {
+        return value as TemplateType;
+    }
+    return 'design_decision';
 };
 
-export default function NewReflectionModal({ isOpen, onClose, preSelectedProjectId, initialData, onSuccess }: NewReflectionModalProps) {
+const mapLegacyTypeToCategory = (type: string): TemplateType => {
+    const mapping: Record<string, TemplateType> = {
+        'decision': 'design_decision',
+        'challenge': 'technical_challenge',
+        'tradeoff': 'tradeoff',
+        'lesson': 'lesson_learned'
+    };
+    return mapping[type] || 'design_decision';
+};
+
+const getDefaultFieldsForTemplate = (templateType: TemplateType): Record<string, string | string[] | boolean> => {
+    const template = getTemplate(templateType);
+    
+    const fields: Record<string, string | string[] | boolean> = {};
+    template.fields.forEach(field => {
+        if (field.type === 'toggle') {
+            fields[field.name] = field.options?.[0] || '';
+        } else {
+            fields[field.name] = '';
+        }
+    });
+    return fields;
+};
+
+export default function NewReflectionModal({ 
+    isOpen, 
+    onClose, 
+    preSelectedProjectId, 
+    initialData, 
+    onSuccess 
+}: NewReflectionModalProps) {
     const [projects, setProjects] = useState<Project[]>([]);
     const [loading, setLoading] = useState(false);
-    const [isPreview, setIsPreview] = useState(false);
+    const [showTemplateWarning, setShowTemplateWarning] = useState(false);
+    const [pendingTemplate, setPendingTemplate] = useState<TemplateType | null>(null);
+    const [validationErrors, setValidationErrors] = useState<string[]>([]);
+    
+    const textareaRefs = useRef<Record<string, HTMLTextAreaElement>>({});
+
     const [formData, setFormData] = useState({
         projectId: preSelectedProjectId || '',
         title: '',
-        type: 'decision',
+        category: 'design_decision' as TemplateType,
+        template_type: 'design_decision' as TemplateType,
         impact: 'minor',
-        content: TEMPLATES.decision
+        tags: [] as string[],
+        fields: getDefaultFieldsForTemplate('design_decision')
     });
 
+    // Initialize from initialData (supports both old and new formats)
     useEffect(() => {
         if (initialData) {
+            const category = normalizeTemplateType(initialData.category || mapLegacyTypeToCategory(initialData.type || 'decision'));
+            const template = normalizeTemplateType(initialData.template_type || category);
+            
             setFormData({
                 projectId: initialData.projectId,
                 title: initialData.title,
-                type: initialData.type,
-                impact: initialData.impact,
-                content: initialData.content
+                category,
+                template_type: template,
+                impact: initialData.impact || 'minor',
+                tags: initialData.tags || [],
+                fields: initialData.fields || getDefaultFieldsForTemplate(template)
             });
         } else if (preSelectedProjectId) {
-            setFormData(prev => ({ ...prev, projectId: preSelectedProjectId, title: '', type: 'decision', impact: 'minor', content: TEMPLATES.decision }));
+            const category: TemplateType = 'design_decision';
+            setFormData(prev => ({
+                ...prev,
+                projectId: preSelectedProjectId,
+                title: '',
+                category,
+                template_type: category,
+                fields: getDefaultFieldsForTemplate(category)
+            }));
         }
+        setValidationErrors([]);
     }, [initialData, preSelectedProjectId, isOpen]);
 
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // Fetch projects on modal open
     useEffect(() => {
         if (isOpen) {
             fetchProjects();
         }
     }, [isOpen]);
-
-    const handleTypeChange = (newType: string) => {
-        const isDefault = Object.values(TEMPLATES).includes(formData.content.trim()) || formData.content.trim() === '';
-        if (isDefault) {
-            setFormData({ ...formData, type: newType, content: TEMPLATES[newType] });
-        } else {
-            setFormData({ ...formData, type: newType });
-        }
-    };
 
     const fetchProjects = async () => {
         try {
@@ -99,25 +154,174 @@ export default function NewReflectionModal({ isOpen, onClose, preSelectedProject
         }
     };
 
+    const hasFilledFields = (): boolean => {
+        if (formData.title.trim() !== '') return true;
+
+        const activeTemplate = getTemplate(formData.template_type);
+
+        return activeTemplate.fields.some((field) => {
+            const value = formData.fields[field.name];
+
+            if (field.type === 'toggle') {
+                const defaultOption = field.options?.[0] || '';
+                return typeof value === 'string' && value.trim() !== '' && value !== defaultOption;
+            }
+
+            if (Array.isArray(value)) {
+                return value.some((item) => String(item).trim() !== '');
+            }
+
+            return typeof value === 'string' && value.trim() !== '';
+        });
+    };
+
+    const handleTemplateChange = (newTemplate: TemplateType) => {
+        if (formData.template_type !== newTemplate && hasFilledFields()) {
+            setPendingTemplate(newTemplate);
+            setShowTemplateWarning(true);
+        } else {
+            switchTemplate(newTemplate);
+        }
+    };
+
+    const switchTemplate = (newTemplate: TemplateType) => {
+        setFormData({
+            ...formData,
+            category: newTemplate,
+            template_type: newTemplate,
+            fields: getDefaultFieldsForTemplate(newTemplate)
+        });
+        setShowTemplateWarning(false);
+        setPendingTemplate(null);
+        setValidationErrors([]);
+    };
+
+    const handleTextareaInput = (fieldName: string, value: string) => {
+        setFormData(prev => ({
+            ...prev,
+            fields: {
+                ...prev.fields,
+                [fieldName]: value
+            }
+        }));
+
+        // Auto-expand textarea
+        const textarea = textareaRefs.current[fieldName];
+        if (textarea) {
+            textarea.style.height = 'auto';
+            textarea.style.height = Math.min(textarea.scrollHeight, 300) + 'px';
+        }
+    };
+
+    const handleToggleChange = (fieldName: string, value: string) => {
+        setFormData(prev => ({
+            ...prev,
+            fields: {
+                ...prev.fields,
+                [fieldName]: value
+            }
+        }));
+    };
+
+    const getTextFieldValue = (fieldName: string): string => {
+        const value = formData.fields[fieldName];
+        if (Array.isArray(value)) return value.join(', ');
+        if (typeof value === 'boolean') return value ? 'true' : 'false';
+        return typeof value === 'string' ? value : '';
+    };
+
+    const getSelectedQuickOptions = (field: FieldDefinition): string[] => {
+        const raw = String(formData.fields[field.name] || '').trim();
+        if (!raw) return [];
+
+        const splitter = field.type === 'textarea' ? /\n+/ : /,+/;
+        return raw
+            .split(splitter)
+            .map(item => item.trim())
+            .filter(Boolean);
+    };
+
+    const handleQuickOptionSelect = (field: FieldDefinition, option: string) => {
+        const mode = field.quickMode || 'multi';
+        const selected = getSelectedQuickOptions(field);
+        const hasOption = selected.includes(option);
+
+        let nextValue = '';
+        if (mode === 'single') {
+            nextValue = hasOption ? '' : option;
+        } else {
+            const nextSelected = hasOption
+                ? selected.filter(item => item !== option)
+                : [...selected, option];
+            nextValue = field.type === 'textarea'
+                ? nextSelected.join('\n')
+                : nextSelected.join(', ');
+        }
+
+        if (field.type === 'textarea') {
+            handleTextareaInput(field.name, nextValue);
+        } else {
+            setFormData(prev => ({
+                ...prev,
+                fields: {
+                    ...prev.fields,
+                    [field.name]: nextValue
+                }
+            }));
+        }
+    };
+
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
+        
+        // Validate fields
+        const nextErrors: string[] = [];
+        if (formData.title.trim().length === 0) {
+            nextErrors.push('title');
+        }
+
+        const validation = validateFields(formData.template_type, formData.fields);
+        if (!validation.valid) {
+            nextErrors.push(...validation.missingFields);
+        }
+
+        if (nextErrors.length > 0) {
+            setValidationErrors(nextErrors);
+            return;
+        }
+
         setLoading(true);
         try {
+            const payload = {
+                projectId: formData.projectId,
+                title: formData.title,
+                category: formData.category,
+                template_type: formData.template_type,
+                impact: formData.impact,
+                tags: formData.tags,
+                fields: formData.fields
+            };
+
             if (initialData?.id) {
-                await api.patch(`/reflections/${initialData.id}`, formData);
+                await api.patch(`/reflections/${initialData.id}`, payload);
             } else {
-                await api.post('/reflections', formData);
+                await api.post('/reflections', payload);
             }
-            
+
+            // Reset form
             if (!initialData) {
+                const initialCategory: TemplateType = 'design_decision';
                 setFormData({
                     projectId: preSelectedProjectId || (projects[0]?.id || ''),
                     title: '',
-                    type: 'decision',
+                    category: initialCategory,
+                    template_type: initialCategory,
                     impact: 'minor',
-                    content: TEMPLATES.decision
+                    tags: [],
+                    fields: getDefaultFieldsForTemplate(initialCategory)
                 });
             }
+            setValidationErrors([]);
             if (onSuccess) onSuccess();
             onClose();
         } catch (err) {
@@ -130,172 +334,410 @@ export default function NewReflectionModal({ isOpen, onClose, preSelectedProject
 
     if (!isOpen) return null;
 
+    const currentTemplate = getTemplate(formData.template_type);
+    const allTemplates = getAllTemplates();
+
     return (
-        <div style={{
-            position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
-            background: 'rgba(14, 13, 11, 0.5)', backdropFilter: 'blur(6px)',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            zIndex: 1000, padding: 20
-        }} onClick={onClose}>
-            <div style={{
-                background: '#f5f2eb', width: '100%', maxWidth: 1000,
-                borderRadius: 20, border: '1px solid var(--border)',
-                boxShadow: '0 30px 60px rgba(0,0,0,0.2)',
-                display: 'flex', flexDirection: 'column', height: '90vh',
-                overflow: 'hidden', animation: 'fadeUp 0.3s ease both'
-            }} onClick={e => e.stopPropagation()}>
-                
-                {/* Header */}
-                <div style={{ padding: '24px 32px', borderBottom: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#fff' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
-                        <div style={{ width: 40, height: 40, borderRadius: 10, background: 'var(--paper-dark)', border: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                            <Type size={20} color="var(--ink)" />
-                        </div>
-                        <div>
-                            <h2 style={{ fontFamily: 'var(--serif)', fontSize: 24, color: 'var(--ink)' }}>{initialData ? 'Update Entry' : 'Engineering Entry'}</h2>
-                            <p style={{ fontFamily: 'var(--mono)', fontSize: 11, color: 'var(--muted)', marginTop: 2, letterSpacing: '0.04em' }}>Technical logic & architectural archiving</p>
+        <div 
+            style={{
+                position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+                background: 'rgba(14, 13, 11, 0.5)', backdropFilter: 'blur(6px)',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                zIndex: 1000, padding: 20
+            }} 
+            onClick={onClose}
+        >
+            {/* Template Warning Dialog */}
+            {showTemplateWarning && (
+                <div 
+                    style={{
+                        position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+                        background: 'rgba(0, 0, 0, 0.4)',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        zIndex: 1001
+                    }}
+                    onClick={() => setShowTemplateWarning(false)}
+                >
+                    <div 
+                        style={{
+                            background: '#fff', padding: '32px', borderRadius: 16,
+                            maxWidth: 400, boxShadow: '0 20px 40px rgba(0,0,0,0.3)',
+                            border: '1px solid var(--border)'
+                        }}
+                        onClick={e => e.stopPropagation()}
+                    >
+                        <h3 style={{ fontFamily: 'var(--serif)', fontSize: 18, marginBottom: 12, color: 'var(--ink)' }}>
+                            Unsaved Changes
+                        </h3>
+                        <p style={{ color: 'var(--muted)', marginBottom: 24, lineHeight: 1.6 }}>
+                            You have unsaved content in this entry. Changing templates will clear your work. Continue anyway?
+                        </p>
+                        <div style={{ display: 'flex', gap: 12 }}>
+                            <button
+                                type="button"
+                                onClick={() => setShowTemplateWarning(false)}
+                                style={{
+                                    flex: 1, padding: '12px 16px', border: '1px solid var(--border)',
+                                    borderRadius: 8, background: '#fff', cursor: 'pointer',
+                                    fontSize: 14, fontWeight: 500, color: 'var(--ink)'
+                                }}
+                            >
+                                Keep Editing
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => pendingTemplate && switchTemplate(pendingTemplate)}
+                                style={{
+                                    flex: 1, padding: '12px 16px', background: 'var(--rust)',
+                                    borderRadius: 8, border: 'none', cursor: 'pointer',
+                                    fontSize: 14, fontWeight: 500, color: '#fff'
+                                }}
+                            >
+                                Switch Template
+                            </button>
                         </div>
                     </div>
-                    <button onClick={onClose} style={{ background: 'var(--paper-dark)', border: 'none', borderRadius: '50%', cursor: 'pointer', color: 'var(--muted)', width: 32, height: 32, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                </div>
+            )}
+
+            <div 
+                style={{
+                    background: '#f5f2eb', width: '100%', maxWidth: 1200,
+                    borderRadius: 20, border: '1px solid var(--border)',
+                    boxShadow: '0 30px 60px rgba(0,0,0,0.2)',
+                    display: 'flex', flexDirection: 'column', height: '90vh',
+                    overflow: 'hidden'
+                }} 
+                onClick={e => e.stopPropagation()}
+            >
+                {/* Header */}
+                <div style={{
+                    padding: '24px 32px', borderBottom: '1px solid var(--border)',
+                    display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                    background: '#fff'
+                }}>
+                    <div>
+                        <h2 style={{ fontFamily: 'var(--serif)', fontSize: 24, color: 'var(--ink)' }}>
+                            {initialData ? 'Update Entry' : 'Engineering Entry'}
+                        </h2>
+                        <p style={{
+                            fontFamily: 'var(--mono)', fontSize: 11, color: 'var(--muted)',
+                            marginTop: 2, letterSpacing: '0.04em'
+                        }}>
+                            Structured technical knowledge capture
+                        </p>
+                    </div>
+                    <button 
+                        onClick={onClose} 
+                        style={{
+                            background: 'var(--paper-dark)', border: 'none', borderRadius: '50%',
+                            cursor: 'pointer', color: 'var(--muted)', width: 32, height: 32,
+                            display: 'flex', alignItems: 'center', justifyContent: 'center'
+                        }}
+                    >
                         <X size={18} />
                     </button>
                 </div>
 
                 <form onSubmit={handleSubmit} style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
-                    {/* Left: Metadata */}
-                    <div style={{ width: 300, background: '#ece8df', borderRight: '1px solid var(--border)', padding: '32px 24px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 32 }}>
+                    {/* Left Panel: Templates & Metadata */}
+                    <div style={{ width: 320, background: '#ece8df', borderRight: '1px solid var(--border)', padding: '24px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 24 }}>
                         
-                        <div>
-                            <label style={{ display: 'block', fontSize: 10, fontFamily: 'var(--mono)', color: 'var(--muted)', textTransform: 'uppercase', marginBottom: 12, letterSpacing: '0.1em' }}>Project Archive</label>
-                            <select 
-                                required
-                                value={formData.projectId}
-                                onChange={e => setFormData({ ...formData, projectId: e.target.value })}
-                                disabled={!!preSelectedProjectId || !!initialData}
-                                style={{ width: '100%', padding: '12px', borderRadius: 8, border: '1px solid var(--border)', background: '#fff', fontSize: 13, outline: 'none' }}
-                            >
-                                {projects.map(p => (
-                                    <option key={p.id} value={p.id}>{p.name}</option>
-                                ))}
-                            </select>
-                        </div>
+                        {/* Metadata Section */}
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+                            <div>
+                                <label style={{
+                                    display: 'block', fontSize: 10, fontFamily: 'var(--mono)',
+                                    color: 'var(--muted)', textTransform: 'uppercase',
+                                    marginBottom: 12, letterSpacing: '0.1em'
+                                }}>
+                                    Project Archive
+                                </label>
+                                <select
+                                    required
+                                    value={formData.projectId}
+                                    onChange={e => setFormData({ ...formData, projectId: e.target.value })}
+                                    disabled={!!preSelectedProjectId || !!initialData}
+                                    style={{
+                                        width: '100%', padding: '12px', borderRadius: 8,
+                                        border: '1px solid var(--border)', background: '#fff',
+                                        fontSize: 13, outline: 'none'
+                                    }}
+                                >
+                                    {projects.map(p => (
+                                        <option key={p.id} value={p.id}>{p.name}</option>
+                                    ))}
+                                </select>
+                            </div>
 
-                        <div>
-                            <label style={{ display: 'block', fontSize: 10, fontFamily: 'var(--mono)', color: 'var(--muted)', textTransform: 'uppercase', marginBottom: 12, letterSpacing: '0.1em' }}>Log Category</label>
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                                {TYPES.map(t => (
-                                    <button
-                                        key={t.value}
-                                        type="button"
-                                        onClick={() => handleTypeChange(t.value)}
-                                        style={{
-                                            padding: '10px 14px', borderRadius: 8, textAlign: 'left',
-                                            border: '1px solid ' + (formData.type === t.value ? 'var(--amber)' : 'var(--border)'),
-                                            background: formData.type === t.value ? 'var(--paper)' : '#fff',
-                                            cursor: 'pointer', transition: 'all 0.15s'
-                                        }}
-                                    >
-                                        <p style={{ fontSize: 13, fontWeight: 500, color: 'var(--ink)' }}>{t.label}</p>
-                                        <p style={{ fontSize: 10, color: 'var(--muted)', marginTop: 2 }}>{t.desc}</p>
-                                    </button>
-                                ))}
+                            <div>
+                                <label style={{
+                                    display: 'block', fontSize: 10, fontFamily: 'var(--mono)',
+                                    color: 'var(--muted)', textTransform: 'uppercase',
+                                    marginBottom: 12, letterSpacing: '0.1em'
+                                }}>
+                                    System Impact
+                                </label>
+                                <div style={{
+                                    display: 'flex', gap: 4, background: '#fff', padding: 4,
+                                    borderRadius: 8, border: '1px solid var(--border)'
+                                }}>
+                                    {IMPACTS.map(i => (
+                                        <button
+                                            key={i.value}
+                                            type="button"
+                                            onClick={() => setFormData({ ...formData, impact: i.value })}
+                                            style={{
+                                                flex: 1, padding: '8px 0', borderRadius: 6, border: 'none',
+                                                background: formData.impact === i.value ? i.color : 'transparent',
+                                                color: formData.impact === i.value ? '#fff' : 'var(--muted)',
+                                                fontSize: 11, fontWeight: 500, cursor: 'pointer', transition: 'all 0.2s'
+                                            }}
+                                        >
+                                            {i.label}
+                                        </button>
+                                    ))}
+                                </div>
                             </div>
                         </div>
 
+                        {/* Template Selector */}
                         <div>
-                            <label style={{ display: 'block', fontSize: 10, fontFamily: 'var(--mono)', color: 'var(--muted)', textTransform: 'uppercase', marginBottom: 12, letterSpacing: '0.1em' }}>System Impact</label>
-                            <div style={{ display: 'flex', gap: 4, background: '#fff', padding: 4, borderRadius: 8, border: '1px solid var(--border)' }}>
-                                {IMPACTS.map(i => (
+                            <label style={{
+                                display: 'block', fontSize: 10, fontFamily: 'var(--mono)',
+                                color: 'var(--muted)', textTransform: 'uppercase',
+                                marginBottom: 12, letterSpacing: '0.1em'
+                            }}>
+                                Entry Template
+                            </label>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                                {allTemplates.map(template => (
                                     <button
-                                        key={i.value}
+                                        key={template.value}
                                         type="button"
-                                        onClick={() => setFormData({...formData, impact: i.value})}
+                                        onClick={() => handleTemplateChange(template.value)}
                                         style={{
-                                            flex: 1, padding: '8px 0', borderRadius: 6, border: 'none',
-                                            background: formData.impact === i.value ? i.color : 'transparent',
-                                            color: formData.impact === i.value ? '#fff' : 'var(--muted)',
-                                            fontSize: 11, fontWeight: 500, cursor: 'pointer', transition: 'all 0.2s'
+                                            padding: '12px 14px', borderRadius: 8, textAlign: 'left',
+                                            border: '1px solid ' + (formData.template_type === template.value ? 'var(--amber)' : 'var(--border)'),
+                                            background: formData.template_type === template.value ? 'var(--paper)' : '#fff',
+                                            cursor: 'pointer', transition: 'all 0.15s',
+                                            display: 'flex', justifyContent: 'space-between', alignItems: 'center'
                                         }}
                                     >
-                                        {i.label}
+                                        <div>
+                                            <p style={{ fontSize: 12, fontWeight: 500, color: 'var(--ink)' }}>
+                                                {template.category}
+                                            </p>
+                                            <p style={{ fontSize: 9, color: 'var(--muted)', marginTop: 2 }}>
+                                                {template.description}
+                                            </p>
+                                        </div>
+                                        {formData.template_type === template.value && (
+                                            <ChevronRight size={14} style={{ flexShrink: 0, marginLeft: 8, color: 'var(--amber)' }} />
+                                        )}
                                     </button>
                                 ))}
                             </div>
                         </div>
                     </div>
 
-                    {/* Right: Content & Editor */}
-                    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', padding: '32px' }}>
-                        <div style={{ marginBottom: 24 }}>
-                            <label style={{ display: 'block', fontSize: 10, fontFamily: 'var(--mono)', color: 'var(--muted)', textTransform: 'uppercase', marginBottom: 12, letterSpacing: '0.1em' }}>Technical Handle / Title</label>
-                            <input 
+                    {/* Right Panel: Form Content */}
+                    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', padding: '32px', overflowY: 'auto' }}>
+                        
+                        {/* Title */}
+                        <div style={{ marginBottom: 32 }}>
+                            <label style={{
+                                display: 'block', fontSize: 10, fontFamily: 'var(--mono)',
+                                color: 'var(--muted)', textTransform: 'uppercase',
+                                marginBottom: 12, letterSpacing: '0.1em'
+                            }}>
+                                Technical Handle / Title
+                            </label>
+                            <input
                                 required
                                 value={formData.title}
                                 onChange={e => setFormData({ ...formData, title: e.target.value })}
-                                placeholder="Summary for this entry..." 
-                                style={{ width: '100%', padding: '14px 18px', borderRadius: 10, border: '1px solid var(--border)', background: '#fff', fontSize: 16, fontWeight: 500, outline: 'none' }}
+                                placeholder="Summary for this entry..."
+                                style={{
+                                    width: '100%', padding: '14px 18px', borderRadius: 10,
+                                    border: validationErrors.includes('title') ? '2px solid var(--rust)' : '1px solid var(--border)',
+                                    background: '#fff', fontSize: 16, fontWeight: 500, outline: 'none'
+                                }}
                             />
+                            {validationErrors.includes('title') && (
+                                <p style={{ fontSize: 11, color: 'var(--rust)', marginTop: 6, display: 'flex', alignItems: 'center', gap: 4 }}>
+                                    <AlertCircle size={14} /> Title is required
+                                </p>
+                            )}
                         </div>
 
-                        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 12 }}>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                                    <label style={{ fontSize: 10, fontFamily: 'var(--mono)', color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.1em' }}>Detailed Documentation</label>
-                                </div>
-                                <div style={{ display: 'flex', background: 'var(--paper-dark)', padding: 3, borderRadius: 8, border: '1px solid var(--border)' }}>
-                                    <button 
-                                        type="button"
-                                        onClick={() => setIsPreview(false)}
-                                        style={{ background: !isPreview ? 'var(--ink)' : 'transparent', color: !isPreview ? '#fff' : 'var(--muted)', border: 'none', borderRadius: 6, padding: '6px 16px', fontSize: 11, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6, fontWeight: 500 }}>
-                                        <Type size={12} /> Write
-                                    </button>
-                                    <button 
-                                        type="button"
-                                        onClick={() => setIsPreview(true)}
-                                        style={{ background: isPreview ? 'var(--ink)' : 'transparent', color: isPreview ? '#fff' : 'var(--muted)', border: 'none', borderRadius: 6, padding: '6px 16px', fontSize: 11, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6, fontWeight: 500 }}>
-                                        <Eye size={12} /> Preview
-                                    </button>
-                                </div>
-                            </div>
+                        {/* Dynamic Fields */}
+                        {currentTemplate && (
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
+                                {currentTemplate.fields.map((field: FieldDefinition) => (
+                                    <div key={field.name}>
+                                        <label style={{
+                                            display: 'block', fontSize: 10, fontFamily: 'var(--mono)',
+                                            color: 'var(--muted)', textTransform: 'uppercase',
+                                            marginBottom: 12, letterSpacing: '0.1em'
+                                        }}>
+                                            {field.label} {field.required && <span style={{ color: 'var(--rust)' }}>*</span>}
+                                        </label>
 
-                            <div style={{ flex: 1, position: 'relative' }}>
-                                {isPreview ? (
-                                    <div className="markdown-body" style={{ height: '100%', background: '#fff', borderRadius: 10, border: '1px solid var(--border)', padding: 32, overflowY: 'auto', lineHeight: 1.6, color: 'var(--ink)' }}>
-                                        <ReactMarkdown>{formData.content}</ReactMarkdown>
-                                        <style>{`
-                                            .markdown-body h1, .markdown-body h2, .markdown-body h3 { border-bottom: 1px solid var(--border); padding-bottom: 8px; margin-bottom: 16px; margin-top: 24px; font-family: var(--serif); font-weight: 500; }
-                                            .markdown-body h3 { font-size: 1.25em; border-bottom: none; }
-                                            .markdown-body p { margin-bottom: 16px; font-size: 15px; }
-                                            .markdown-body ul, .markdown-body ol { margin-bottom: 16px; padding-left: 20px; }
-                                            .markdown-body li { margin-bottom: 4px; font-size: 15px; }
-                                            .markdown-body code { background: var(--paper-dark); padding: 2px 5px; borderRadius: 4px; font-family: var(--mono); font-size: 0.9em; }
-                                            .markdown-body pre { background: var(--paper-dark); padding: 16px; borderRadius: 8px; margin-bottom: 16px; overflow-x: auto; }
-                                            .markdown-body pre code { background: none; padding: 0; }
-                                            .markdown-body blockquote { border-left: 4px solid var(--border); padding-left: 16px; color: var(--muted); margin-bottom: 16px; }
-                                        `}</style>
+                                        {field.type === 'text' && (
+                                            <>
+                                                <input
+                                                    type="text"
+                                                    value={getTextFieldValue(field.name)}
+                                                    onChange={e => setFormData(prev => ({
+                                                        ...prev,
+                                                        fields: { ...prev.fields, [field.name]: e.target.value }
+                                                    }))}
+                                                    placeholder={field.placeholder}
+                                                    style={{
+                                                        width: '100%', padding: '12px 16px', borderRadius: 8,
+                                                        border: validationErrors.includes(field.name) ? '2px solid var(--rust)' : '1px solid var(--border)',
+                                                        background: '#fff', fontSize: 14, outline: 'none'
+                                                    }}
+                                                />
+                                                {field.quickOptions && field.quickOptions.length > 0 && (
+                                                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 10 }}>
+                                                        {field.quickOptions.map((option) => (
+                                                            <button
+                                                                key={`${field.name}-quick-${option}`}
+                                                                type="button"
+                                                                onClick={() => handleQuickOptionSelect(field, option)}
+                                                                style={{
+                                                                    padding: '6px 10px', borderRadius: 999,
+                                                                    border: '1px solid ' + (getSelectedQuickOptions(field).includes(option) ? 'var(--ink)' : 'var(--border)'),
+                                                                    background: getSelectedQuickOptions(field).includes(option) ? 'var(--ink)' : '#fff',
+                                                                    color: getSelectedQuickOptions(field).includes(option) ? '#fff' : 'var(--muted)',
+                                                                    fontSize: 11, fontFamily: 'var(--mono)',
+                                                                    cursor: 'pointer'
+                                                                }}
+                                                            >
+                                                                {option}
+                                                            </button>
+                                                        ))}
+                                                    </div>
+                                                )}
+                                                {validationErrors.includes(field.name) && (
+                                                    <p style={{ fontSize: 11, color: 'var(--rust)', marginTop: 6, display: 'flex', alignItems: 'center', gap: 4 }}>
+                                                        <AlertCircle size={14} /> {field.label} is required
+                                                    </p>
+                                                )}
+                                            </>
+                                        )}
+
+                                        {field.type === 'textarea' && (
+                                            <>
+                                                <textarea
+                                                    ref={el => { if (el) textareaRefs.current[field.name] = el; }}
+                                                    value={getTextFieldValue(field.name)}
+                                                    onChange={e => handleTextareaInput(field.name, e.target.value)}
+                                                    placeholder={field.placeholder}
+                                                    style={{
+                                                        width: '100%', padding: '14px 16px', borderRadius: 8,
+                                                        border: validationErrors.includes(field.name) ? '2px solid var(--rust)' : '1px solid var(--border)',
+                                                        background: '#fff', fontSize: 14, fontFamily: 'var(--mono)',
+                                                        outline: 'none', resize: 'none', minHeight: 84,
+                                                        maxHeight: 240, overflowY: 'auto'
+                                                    }}
+                                                />
+                                                {field.quickOptions && field.quickOptions.length > 0 && (
+                                                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 10 }}>
+                                                        {field.quickOptions.map((option) => (
+                                                            <button
+                                                                key={`${field.name}-quick-${option}`}
+                                                                type="button"
+                                                                onClick={() => handleQuickOptionSelect(field, option)}
+                                                                style={{
+                                                                    padding: '6px 10px', borderRadius: 999,
+                                                                    border: '1px solid ' + (getSelectedQuickOptions(field).includes(option) ? 'var(--ink)' : 'var(--border)'),
+                                                                    background: getSelectedQuickOptions(field).includes(option) ? 'var(--ink)' : '#fff',
+                                                                    color: getSelectedQuickOptions(field).includes(option) ? '#fff' : 'var(--muted)',
+                                                                    fontSize: 11, fontFamily: 'var(--mono)',
+                                                                    cursor: 'pointer'
+                                                                }}
+                                                            >
+                                                                {option}
+                                                            </button>
+                                                        ))}
+                                                    </div>
+                                                )}
+                                                {validationErrors.includes(field.name) && (
+                                                    <p style={{ fontSize: 11, color: 'var(--rust)', marginTop: 6, display: 'flex', alignItems: 'center', gap: 4 }}>
+                                                        <AlertCircle size={14} /> {field.label} is required
+                                                    </p>
+                                                )}
+                                            </>
+                                        )}
+
+                                        {field.type === 'toggle' && field.options && (
+                                            <>
+                                                <div style={{ display: 'flex', gap: 6 }}>
+                                                    {field.options.map(option => (
+                                                        <button
+                                                            key={`${field.name}-${option}`}
+                                                            type="button"
+                                                            onClick={() => handleToggleChange(field.name, option)}
+                                                            style={{
+                                                                padding: '8px 16px', borderRadius: 6,
+                                                                border: '1px solid ' + (formData.fields[field.name] === option ? 'var(--ink)' : 'var(--border)'),
+                                                                background: formData.fields[field.name] === option ? 'var(--ink)' : '#fff',
+                                                                color: formData.fields[field.name] === option ? '#fff' : 'var(--ink)',
+                                                                fontSize: 12, fontWeight: 500, cursor: 'pointer',
+                                                                transition: 'all 0.2s'
+                                                            }}
+                                                        >
+                                                            {option}
+                                                        </button>
+                                                    ))}
+                                                </div>
+                                                {validationErrors.includes(field.name) && (
+                                                    <p style={{ fontSize: 11, color: 'var(--rust)', marginTop: 6, display: 'flex', alignItems: 'center', gap: 4 }}>
+                                                        <AlertCircle size={14} /> Please select an option
+                                                    </p>
+                                                )}
+                                            </>
+                                        )}
+
+                                        {field.helpText && (
+                                            <p style={{ fontSize: 11, color: 'var(--muted)', marginTop: 8 }}>
+                                                {field.helpText}
+                                            </p>
+                                        )}
                                     </div>
-                                ) : (
-                                    <textarea 
-                                        required
-                                        value={formData.content}
-                                        onChange={e => setFormData({ ...formData, content: e.target.value })}
-                                        placeholder="Write technical journal entry..." 
-                                        style={{
-                                            height: '100%', width: '100%', padding: '24px', borderRadius: 10, border: '1px solid var(--border)',
-                                            background: '#fff', fontSize: 15, fontFamily: 'var(--mono)', outline: 'none',
-                                            lineHeight: 1.7, resize: 'none', color: '#1a1815'
-                                        }}
-                                    />
-                                )}
+                                ))}
                             </div>
-                        </div>
+                        )}
 
-                        <div style={{ marginTop: 24, display: 'flex', justifyContent: 'flex-end' }}>
-                            <button 
-                                type="submit" 
+                        {/* Submit Button */}
+                        <div style={{ marginTop: 32, display: 'flex', justifyContent: 'flex-end', gap: 12 }}>
+                            <button
+                                type="button"
+                                onClick={onClose}
+                                style={{
+                                    padding: '12px 32px', border: '1px solid var(--border)',
+                                    borderRadius: 8, background: '#fff', cursor: 'pointer',
+                                    fontSize: 14, fontWeight: 500, color: 'var(--ink)'
+                                }}
+                            >
+                                Discard
+                            </button>
+                            <button
+                                type="submit"
                                 disabled={loading}
-                                style={{ padding: '14px 40px', background: 'var(--ink)', color: 'var(--paper)', border: 'none', borderRadius: 10, fontSize: 15, fontWeight: 500, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 10, transition: 'all 0.2s' }}>
-                                {loading ? <Loader2 size={18} className="animate-spin" /> : <><Send size={18} /> {initialData ? 'Update Entry' : 'Seal Archive Entry'}</>}
+                                style={{
+                                    padding: '12px 32px', background: 'var(--ink)',
+                                    color: 'var(--paper)', border: 'none', borderRadius: 8,
+                                    fontSize: 14, fontWeight: 500, cursor: 'pointer',
+                                    display: 'flex', alignItems: 'center', gap: 8,
+                                    transition: 'all 0.2s', opacity: loading ? 0.7 : 1
+                                }}
+                            >
+                                {loading ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} />}
+                                {initialData ? 'Update Entry' : 'Create Entry'}
                             </button>
                         </div>
                     </div>

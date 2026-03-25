@@ -8,13 +8,14 @@ datasource db {
 }
 
 model User {
-  id        String    @id @default(uuid())
-  email     String    @unique
-  password  String
-  name      String
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
-  projects  Project[]
+  id          String         @id @default(uuid())
+  email       String         @unique
+  password    String
+  name        String
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+  projects    Project[]
+  reflections Reflection[]
 }
 
 model Project {
@@ -30,14 +31,25 @@ model Project {
 }
 
 model Reflection {
-  id        String   @id @default(uuid())
-  title     String
-  type      String
-  content   String
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  projectId String
-  impact    String   @default("minor")
-  tools     String[]
-  project   Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  id            String   @id @default(uuid())
+  title         String
+  category      String   // design_decision, technical_challenge, tradeoff, lesson_learned, bug_autopsy, integration_note
+  template_type String?  // Structured template type (same as category for new entries)
+  impact        String   @default("minor")
+  tags          String[]
+  
+  // NEW: Structured fields (JSONB in PostgreSQL)
+  fields        Json?    // Structured key-value pairs for the selected template
+  
+  // OLD: Markdown content (nullable for backward compatibility)
+  content       String?  // Keep for old migrated entries as fallback
+  
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  
+  projectId     String
+  project       Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  
+  userId        String   // Author ID (who created this reflection)
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
