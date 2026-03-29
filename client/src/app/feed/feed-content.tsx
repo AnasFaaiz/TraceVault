@@ -321,6 +321,7 @@ export default function FeedContent() {
       subtitle="Discover and engage with reflections from your engineering community"
       headerActions={filterButton}
       headerLeftContent={<FeedTabs activeView={view} />}
+      onReflectionCreated={handleLoadNewEntries}
     >
       <div className={styles.container}>
         {newEntriesCount > 0 && (

@@ -723,6 +723,7 @@ export class ReflectionsService {
     const orderBy: Prisma.ReflectionOrderByWithRelationInput = {
       createdAt: 'desc',
     };
+    const hasExplicitTagFilter = !!(filters?.tags && filters.tags.length > 0);
 
     if (view === 'trending') {
       // Trending: most reactions in last 30 days
@@ -739,8 +740,16 @@ export class ReflectionsService {
         const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
         where.createdAt = { gte: thirtyDaysAgo };
       } else if (view === 'for_you') {
-        // For You: at least one matching tag
-        where.tags = { hasSome: userTags };
+        // For You: at least one matching tag, plus always include user's own entries
+        // when no explicit tag filter is applied.
+        if (hasExplicitTagFilter) {
+          where.tags = { hasSome: userTags };
+        } else {
+          where.OR = [
+            { tags: { hasSome: userTags } },
+            { project: { userId } },
+          ];
+        }
       } else if (view === 'from_your_stack') {
         // From Your Stack: all entry tags exist in user's tags
         // This requires more complex logic; we'll filter in-memory
@@ -777,16 +786,18 @@ export class ReflectionsService {
     if (view === 'from_your_stack') {
       const userTags = await this.getUserTagHistory(userId);
       if (userTags.length > 0) {
-        filteredReflections = reflections.filter((r) =>
-          r.tags.every((tag) => userTags.includes(tag)),
+        filteredReflections = reflections.filter(
+          (r) =>
+            r.project.user.id === userId ||
+            r.tags.every((tag) => userTags.includes(tag)),
         );
 
         // If no strict matches, fall back to for_you logic
-        if (filteredReflections.length === 0 && filters?.tags === undefined) {
+        if (filteredReflections.length === 0 && !hasExplicitTagFilter) {
           const forYouReflections = await this.prisma.reflection.findMany({
             where: {
               ...baseWhere,
-              tags: { hasSome: userTags },
+              OR: [{ tags: { hasSome: userTags } }, { project: { userId } }],
             },
             include: {
               project: {
