@@ -78,3 +78,28 @@ jobs:
               env:
                 VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
                 VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+
+    deploy-backend:
+        needs: check
+        runs-on: ubuntu-latest
+        if: github.ref == 'refs/heads/main'
+        steps:
+            - name: Deploy backend to EC2
+              uses: appleboy/ssh-action@v1.2.0
+              with:
+                host: ${{ secrets.EC2_HOST }}
+                username: ${{ secrets.EC2_USER }}
+                key: ${{ secrets.EC2_SSH_KEY }}
+                port: ${{ secrets.EC2_PORT || 22 }}
+                script: |
+                  set -e
+                  cd /var/www/tracevault/TraceVault
+                  git fetch --all
+                  git reset --hard origin/main
+                  cd backend
+                  npm ci
+                  npx prisma generate
+                  npx prisma migrate deploy
+                  npm run build
+                  pm2 restart tracevault-backend
+                  pm2 save
