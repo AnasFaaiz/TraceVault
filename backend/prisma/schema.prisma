@@ -61,7 +61,7 @@ model Reflection {
 
 model Reaction {
   id        String   @id @default(uuid())
-  type      String // "useful" | "felt_this" | "critical" | "noted"
+  type      String // "useful" | "critical" | "applied"
   createdAt DateTime @default(now())
 
   entryId String

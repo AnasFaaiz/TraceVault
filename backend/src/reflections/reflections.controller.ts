@@ -128,6 +128,23 @@ export class ReflectionsController {
   }
 
   /**
+   * Get dynamic trending entries for a selected period.
+   */
+  @UseGuards(JwtAuthGuard)
+  @Get('trending')
+  getTrending(
+    @Req() req: { user: { userId: string } },
+    @Query('period') period: '24h' | '7d' | '30d' = '24h',
+    @Query('limit') limit?: string,
+  ) {
+    return this.reflectionsService.getTrending(
+      req.user.userId,
+      period,
+      limit ? parseInt(limit) : 5,
+    );
+  }
+
+  /**
    * Get single reflection by ID
    */
   @UseGuards(JwtAuthGuard)
@@ -256,7 +273,7 @@ export class ReflectionsController {
   @Post(':id/reactions')
   async toggleReaction(
     @Param('id') entryId: string,
-    @Body() body: { type: 'useful' | 'felt_this' | 'critical' | 'noted' },
+    @Body() body: { type: 'useful' | 'critical' | 'applied' },
     @Req() req: { user: { userId: string } },
   ) {
     return this.reflectionsService.toggleReaction(

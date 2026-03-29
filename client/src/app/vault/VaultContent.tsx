@@ -32,9 +32,8 @@ interface FeedEntry {
   };
   reactions: {
     useful: { count: number; reacted: boolean };
-    felt_this: { count: number; reacted: boolean };
     critical: { count: number; reacted: boolean };
-    noted: { count: number; reacted: boolean };
+    applied: { count: number; reacted: boolean };
   };
   vaulted: boolean;
 }

@@ -9,7 +9,7 @@ import styles from './FiltersPanel.module.css';
 interface FiltersPanelProps {
   isOpen: boolean;
   onClose: () => void;
-  activeView?: 'for_you' | 'from_your_stack' | 'trending';
+  activeView?: 'for_you' | 'from_your_stack';
 }
 
 const TEMPLATE_TYPES = [

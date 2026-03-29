@@ -1,11 +1,113 @@
-import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ForbiddenException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 import { validateFields } from './template-definitions';
 import type { TemplateType } from './template-definitions';
 
+type TrendingPeriod = '24h' | '7d' | '30d';
+
+interface TrendingTraceCard {
+  id: string;
+  title: string;
+  category: 'Technical Challenge' | 'Design Decision' | 'Lesson Learned';
+  severity: 'Minor' | 'Significant' | 'Pivotal';
+  tags: string[];
+  insightStrength: number;
+  learningMomentum: number;
+  contributors: {
+    avatars: string[];
+    count: number;
+  };
+  activityCount: number;
+  trendStartedAt: string;
+}
+
 @Injectable()
 export class ReflectionsService {
   constructor(private prisma: PrismaService) {}
+
+  private getTrendingWindow(period: TrendingPeriod) {
+    const now = Date.now();
+    const durationMs =
+      period === '24h'
+        ? 24 * 60 * 60 * 1000
+        : period === '7d'
+          ? 7 * 24 * 60 * 60 * 1000
+          : 30 * 24 * 60 * 60 * 1000;
+
+    return {
+      currentStart: new Date(now - durationMs),
+      previousStart: new Date(now - 2 * durationMs),
+      durationMs,
+    };
+  }
+
+  private mapCategory(category?: string | null): TrendingTraceCard['category'] {
+    const raw = String(category || '').toLowerCase();
+
+    if (raw === 'design_decision' || raw === 'design decision') {
+      return 'Design Decision';
+    }
+
+    if (raw === 'lesson_learned' || raw === 'lesson learned') {
+      return 'Lesson Learned';
+    }
+
+    return 'Technical Challenge';
+  }
+
+  private mapSeverity(impact?: string | null): TrendingTraceCard['severity'] {
+    const raw = String(impact || '').toLowerCase();
+    if (raw === 'pivotal') return 'Pivotal';
+    if (raw === 'minor') return 'Minor';
+    return 'Significant';
+  }
+
+  private computeWeightedActivity(
+    reactions: Array<{ type: string }>,
+    vaultCount: number,
+  ) {
+    let useful = 0;
+    let critical = 0;
+    let applied = 0;
+
+    reactions.forEach((reaction) => {
+      if (reaction.type === 'useful') useful += 1;
+      if (reaction.type === 'critical') critical += 1;
+      if (reaction.type === 'applied') applied += 1;
+    });
+
+    const weighted =
+      useful * 2.2 + critical * 2.6 + applied * 1.8 + vaultCount * 2.8;
+
+    return {
+      weighted,
+      useful,
+      critical,
+      applied,
+      vaultCount,
+    };
+  }
+
+  private computeInsightStrength(
+    reactions: Array<{ type: string }>,
+    vaultCount: number,
+  ): number {
+    const weighted = this.computeWeightedActivity(reactions, vaultCount).weighted;
+    return Math.max(0, Math.min(100, Math.round(weighted * 8)));
+  }
+
+  private computeLearningMomentum(currentWeighted: number, previousWeighted: number): number {
+    if (currentWeighted <= 0) return 0;
+    if (previousWeighted <= 0) return 100;
+
+    const pct = ((currentWeighted - previousWeighted) / previousWeighted) * 100;
+    return Math.max(-100, Math.min(400, Math.round(pct)));
+  }
 
   private async assertProjectOwner(userId: string, projectId: string) {
     const project = await this.prisma.project.findUnique({
@@ -312,7 +414,7 @@ export class ReflectionsService {
    */
   async getReactionCounts(entryId: string, userId?: string) {
     const prisma = this.prisma as any;
-    const types = ['useful', 'felt_this', 'critical', 'noted'];
+    const types = ['useful', 'critical', 'applied'];
     const result: Record<
       string,
       { count: number; reacted: boolean }
@@ -693,12 +795,147 @@ export class ReflectionsService {
   }
 
   /**
+   * Get dynamic trending entries for a period window.
+   */
+  async getTrending(
+    userId: string,
+    period: TrendingPeriod = '24h',
+    limit: number = 5,
+  ) {
+    const prisma = this.prisma as any;
+
+    if (!['24h', '7d', '30d'].includes(period)) {
+      throw new BadRequestException('Invalid period. Use 24h, 7d, or 30d');
+    }
+
+    const safeLimit = Math.min(Math.max(limit || 5, 3), 5);
+    const { currentStart, previousStart } = this.getTrendingWindow(period);
+
+    const reflections = await prisma.reflection.findMany({
+      where: {
+        OR: [
+          { reactions: { some: { createdAt: { gte: currentStart } } } },
+          { vaultedBy: { some: { vaultedAt: { gte: currentStart } } } },
+        ],
+      },
+      include: {
+        reactions: {
+          where: { createdAt: { gte: previousStart } },
+          select: {
+            createdAt: true,
+            type: true,
+            userId: true,
+          },
+        },
+        vaultedBy: {
+          where: { vaultedAt: { gte: previousStart } },
+          select: {
+            vaultedAt: true,
+            userId: true,
+          },
+        },
+      },
+      take: 150,
+    });
+
+    const ranked = reflections
+      .map((reflection) => {
+        const currentReactions = reflection.reactions.filter(
+          (r) => r.createdAt >= currentStart,
+        );
+        const previousReactions = reflection.reactions.filter(
+          (r) => r.createdAt >= previousStart && r.createdAt < currentStart,
+        );
+
+        const currentVaults = reflection.vaultedBy.filter(
+          (v) => v.vaultedAt >= currentStart,
+        );
+        const previousVaults = reflection.vaultedBy.filter(
+          (v) => v.vaultedAt >= previousStart && v.vaultedAt < currentStart,
+        );
+
+        const activityCount = currentReactions.length + currentVaults.length;
+        if (activityCount === 0) return null;
+
+        const currentWeighted = this.computeWeightedActivity(
+          currentReactions,
+          currentVaults.length,
+        ).weighted;
+        const previousWeighted = this.computeWeightedActivity(
+          previousReactions,
+          previousVaults.length,
+        ).weighted;
+
+        const insightStrength = this.computeInsightStrength(
+          currentReactions,
+          currentVaults.length,
+        );
+        const learningMomentum = this.computeLearningMomentum(
+          currentWeighted,
+          previousWeighted,
+        );
+
+        const contributorIds = new Set<string>([
+          ...currentReactions.map((reaction) => reaction.userId),
+          ...currentVaults.map((vault) => vault.userId),
+        ]);
+
+        const startedAt = [
+          ...currentReactions.map((reaction) => reaction.createdAt.getTime()),
+          ...currentVaults.map((vault) => vault.vaultedAt.getTime()),
+        ].sort((a, b) => a - b)[0];
+
+        const rankScore =
+          learningMomentum * 0.55 +
+          insightStrength * 0.3 +
+          Math.min(100, activityCount * 9) * 0.15;
+
+        const trendingItem: TrendingTraceCard = {
+          id: reflection.id,
+          title: reflection.title,
+          category: this.mapCategory(reflection.template_type || reflection.category),
+          severity: this.mapSeverity(reflection.impact),
+          tags: reflection.tags || [],
+          insightStrength,
+          learningMomentum,
+          contributors: {
+            avatars: [],
+            count: contributorIds.size,
+          },
+          activityCount,
+          trendStartedAt: new Date(startedAt || reflection.createdAt.getTime()).toISOString(),
+        };
+
+        return {
+          rankScore,
+          createdAt: reflection.createdAt.getTime(),
+          item: trendingItem,
+        };
+      })
+      .filter((entry): entry is { rankScore: number; createdAt: number; item: TrendingTraceCard } => entry !== null)
+      .sort((a, b) => {
+        if (b.rankScore !== a.rankScore) return b.rankScore - a.rankScore;
+        if (b.item.activityCount !== a.item.activityCount) {
+          return b.item.activityCount - a.item.activityCount;
+        }
+        return b.createdAt - a.createdAt;
+      })
+      .slice(0, safeLimit)
+      .map((entry) => entry.item);
+
+    return {
+      period,
+      entries: ranked,
+    };
+  }
+
+  /**
    * Toggle a reaction on an entry (create or delete)
    */
   async toggleReaction(
     entryId: string,
     userId: string,
-    type: 'useful' | 'felt_this' | 'critical' | 'noted',
+    type: 'useful' | 'critical' | 'applied',
   ) {
     const prisma = this.prisma as any;
     // Check if reaction already exists
@@ -713,20 +950,30 @@ export class ReflectionsService {
     });
 
     if (existingReaction) {
-      // Delete the reaction (toggle off)
-      await prisma.reaction.delete({
+      // Toggle off: clear reactions for this entry/user to enforce single-selection model.
+      await prisma.reaction.deleteMany({
         where: {
-          id: existingReaction.id,
+          entryId,
+          userId,
         },
       });
     } else {
-      // Create the reaction (toggle on)
-      await prisma.reaction.create({
-        data: {
-          entryId,
-          userId,
-          type,
-        },
+      // Toggle on: replace any prior reaction with the new one.
+      await prisma.$transaction(async (tx) => {
+        await tx.reaction.deleteMany({
+          where: {
+            entryId,
+            userId,
+          },
+        });
+
+        await tx.reaction.create({
+          data: {
+            entryId,
+            userId,
+            type,
+          },
+        });
       });
     }
 

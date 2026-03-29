@@ -2,14 +2,15 @@
 
 import {
     Terminal, Layout, Folder, History, LogOut,
-    Settings, Plus, Globe, Loader2, Search, Archive
+    Settings, Globe, Loader2, Archive
 } from 'lucide-react';
 import { useAuthStore } from '@/store/useAuthStore';
-import { useRouter, usePathname } from 'next/navigation';
-import { useEffect, useRef, useState } from 'react';
+import { useRouter, usePathname, useSearchParams } from 'next/navigation';
+import { Suspense, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useReflectionModal } from '@/store/useReflectionModal';
 import NewReflectionModal from './NewReflectionModal';
+import GlobalSearchBar from './GlobalSearchBar';
 
 interface AppLayoutProps {
     children: React.ReactNode;
@@ -18,17 +19,46 @@ interface AppLayoutProps {
     projectId?: string;
     onReflectionCreated?: () => void;
     headerActions?: React.ReactNode;
+    headerLeftContent?: React.ReactNode;
 }
 
-export default function AppLayout({ children, title, subtitle, projectId: preSelectedProjectId, onReflectionCreated, headerActions }: AppLayoutProps) {
+interface SearchQuerySyncProps {
+    pathname: string;
+    onQuerySync: (query: string) => void;
+}
+
+function SearchQuerySync({ pathname, onQuerySync }: SearchQuerySyncProps) {
+    const router = useRouter();
+    const searchParams = useSearchParams();
+
+    useEffect(() => {
+        const draftValue = searchParams.get('q_draft');
+        const committedValue = searchParams.get('q') ?? '';
+
+        if (draftValue) {
+            onQuerySync(draftValue);
+
+            const params = new URLSearchParams(searchParams.toString());
+            params.delete('q_draft');
+            const queryString = params.toString();
+
+            router.replace(queryString ? `${pathname}?${queryString}` : pathname);
+            return;
+        }
+
+        onQuerySync(committedValue);
+    }, [searchParams, router, pathname, onQuerySync]);
+
+    return null;
+}
+
+export default function AppLayout({ children, title, subtitle, projectId: preSelectedProjectId, onReflectionCreated, headerActions, headerLeftContent }: AppLayoutProps) {
     const { user, logout, token, _hasHydrated } = useAuthStore();
-    const { isOpen, close, open, projectId: modalProjectId, initialData } = useReflectionModal();
+    const { isOpen, close, projectId: modalProjectId, initialData } = useReflectionModal();
     const router = useRouter();
     const pathname = usePathname();
     const [searchQuery, setSearchQuery] = useState('');
     const [isSidebarHovered, setIsSidebarHovered] = useState(false);
-    const [isAddMenuOpen, setIsAddMenuOpen] = useState(false);
-    const addMenuRef = useRef<HTMLDivElement | null>(null);
     const isSidebarOpen = isSidebarHovered;
     const isVaultPage = pathname.startsWith('/vault');
     const isFeedPage = pathname.startsWith('/feed');
@@ -38,11 +68,6 @@ export default function AppLayout({ children, title, subtitle, projectId: preSel
         : isFeedPage
             ? 'Search the Feed... (Title, Tags, Author)'
             : 'Search reflections...';
-    const modifierKey =
-        typeof window !== 'undefined' && navigator.platform.toLowerCase().includes('mac')
-            ? '⌘'
-            : 'Ctrl';
-
     useEffect(() => {
         if (!_hasHydrated) return;
         if (!token) { router.push('/login'); }
@@ -50,29 +75,17 @@ export default function AppLayout({ children, title, subtitle, projectId: preSel
 
     const handleSearch = (e: React.FormEvent) => {
         e.preventDefault();
-        if (searchQuery.trim()) {
-            router.push(`${searchTargetPath}?q=${encodeURIComponent(searchQuery.trim())}`);
-            setSearchQuery('');
-        }
+        const value = searchQuery.trim();
+        if (!value) return;
+
+        const params = (isFeedPage || isVaultPage)
+            ? new URLSearchParams(window.location.search)
+            : new URLSearchParams();
+
+        params.set('q', value);
+        params.delete('q_draft');
+        router.push(`${searchTargetPath}?${params.toString()}`);
     };
-
-    useEffect(() => {
-        const handleOutsideClick = (event: MouseEvent) => {
-            if (
-                addMenuRef.current &&
-                !addMenuRef.current.contains(event.target as Node)
-            ) {
-                setIsAddMenuOpen(false);
-            }
-        };
-
-        document.addEventListener('mousedown', handleOutsideClick);
-        return () => document.removeEventListener('mousedown', handleOutsideClick);
-    }, []);
-
-    useEffect(() => {
-        setIsAddMenuOpen(false);
-    }, [pathname]);
 
     if (!_hasHydrated || (token && !user)) {
         return (
@@ -97,6 +110,9 @@ export default function AppLayout({ children, title, subtitle, projectId: preSel
 
     return (
         <div style={{ position: 'relative', height: '100vh', fontFamily: "'Geist', system-ui, sans-serif", background: '#f5f2eb', overflow: 'hidden' }}>
+            <Suspense fallback={null}>
+                <SearchQuerySync pathname={pathname} onQuerySync={setSearchQuery} />
+            </Suspense>
             <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Geist:wght@300;400;500&family=DM+Mono:wght@400;500&display=swap');
         :root {
@@ -195,107 +211,24 @@ export default function AppLayout({ children, title, subtitle, projectId: preSel
 
             {/* ── Main ── */}
             <main style={{ marginLeft: 70, width: 'calc(100% - 70px)', height: '100vh', overflowY: 'auto', display: 'flex', flexDirection: 'column' }}>
-                {/* Topbar */}
-                <header style={{ padding: '16px 36px', borderBottom: '1px solid var(--border)', background: '#f5f2eb', display: 'flex', justifyContent: 'space-between', alignItems: 'center', position: 'sticky', top: 0, zIndex: 10 }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 40, flex: 1 }}>
-                        <div>
-                            <p style={{ fontFamily: 'var(--mono)', fontSize: 11, color: 'var(--muted)', letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 2 }}>{subtitle}</p>
-                            <h1 style={{ fontFamily: "'Instrument Serif', Georgia, serif", fontSize: 22, fontWeight: 400, color: '#0e0d0b', whiteSpace: 'nowrap' }}>
-                                {title}
-                            </h1>
+                <div style={{ padding: '14px 28px 24px', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', gap: 16 }}>
+                    {headerLeftContent && (
+                        <div style={{ flex: 1, minWidth: 0, display: 'flex', justifyContent: 'flex-start', paddingLeft: 156 }}>
+                            {headerLeftContent}
                         </div>
-
-                        {/* Global Search Bar */}
-                        <form onSubmit={handleSearch} style={{ flex: 1, maxWidth: 400, position: 'relative' }}>
-                            <Search size={14} color="var(--muted)" style={{ position: 'absolute', left: 14, top: '50%', transform: 'translateY(-50%)' }} />
-                            <input 
-                                value={searchQuery}
-                                onChange={e => setSearchQuery(e.target.value)}
-                                placeholder={searchPlaceholder}
-                                style={{
-                                    width: '100%', padding: '10px 14px 10px 40px',
-                                    borderRadius: 10, border: '1px solid var(--border)',
-                                    background: 'var(--paper-dark)', fontSize: 13,
-                                    outline: 'none', transition: 'all 0.2s',
-                                    fontFamily: 'var(--mono)'
-                                }}
-                                onFocus={(e) => e.target.style.background = '#fff'}
-                                onBlur={(e) => e.target.style.background = 'var(--paper-dark)'}
-                            />
-                            <div style={{ position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)', display: 'flex', gap: 4 }}>
-                                <span style={{ padding: '2px 6px', background: 'var(--paper)', border: '1px solid var(--border)', borderRadius: 4, fontSize: 9, color: 'var(--muted)', fontFamily: 'var(--mono)' }}>{modifierKey}</span>
-                                <span style={{ padding: '2px 6px', background: 'var(--paper)', border: '1px solid var(--border)', borderRadius: 4, fontSize: 9, color: 'var(--muted)', fontFamily: 'var(--mono)' }}>K</span>
-                            </div>
-                        </form>
+                    )}
+                    <div style={{ width: '36%', minWidth: 420, maxWidth: 560, flexShrink: 0 }}>
+                        <GlobalSearchBar
+                            value={searchQuery}
+                            onChange={setSearchQuery}
+                            onSubmit={handleSearch}
+                            placeholder={searchPlaceholder}
+                            rightActions={headerActions}
+                        />
                     </div>
+                </div>
 
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginLeft: 24, flexShrink: 0 }}>
-                        {headerActions}
-
-                        <div ref={addMenuRef} style={{ position: 'relative' }}>
-                        <button
-                            type="button"
-                            onClick={() => setIsAddMenuOpen((prev) => !prev)}
-                            aria-label="Add options"
-                            style={{
-                                width: 38,
-                                height: 38,
-                                borderRadius: '50%',
-                                border: 'none',
-                                background: '#0e0d0b',
-                                color: '#f5f2eb',
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                                cursor: 'pointer',
-                                transition: 'transform 0.15s, background 0.2s',
-                            }}
-                        >
-                            <Plus size={16} />
-                        </button>
-
-                        {isAddMenuOpen && (
-                            <div style={{
-                                position: 'absolute', right: 0, top: 46,
-                                width: 180, background: '#fff', border: '1px solid var(--border)',
-                                borderRadius: 10, boxShadow: '0 8px 24px rgba(14,13,11,0.12)',
-                                padding: 8, display: 'flex', flexDirection: 'column', gap: 6,
-                            }}>
-                                <button
-                                    type="button"
-                                    onClick={() => {
-                                        setIsAddMenuOpen(false);
-                                        open(preSelectedProjectId);
-                                    }}
-                                    style={{
-                                        width: '100%', textAlign: 'left', border: 'none', cursor: 'pointer',
-                                        background: 'transparent', borderRadius: 8, padding: '9px 10px',
-                                        fontFamily: 'var(--mono)', fontSize: 11, color: 'var(--ink)',
-                                    }}
-                                >
-                                    + New reflection
-                                </button>
-                                <button
-                                    type="button"
-                                    onClick={() => {
-                                        setIsAddMenuOpen(false);
-                                        router.push('/projects?create=1');
-                                    }}
-                                    style={{
-                                        width: '100%', textAlign: 'left', border: 'none', cursor: 'pointer',
-                                        background: 'transparent', borderRadius: 8, padding: '9px 10px',
-                                        fontFamily: 'var(--mono)', fontSize: 11, color: 'var(--ink)',
-                                    }}
-                                >
-                                    + New project
-                                </button>
-                            </div>
-                        )}
-                        </div>
-                    </div>
-                </header>
-
-                <div style={{ padding: '24px 28px', display: 'flex', flexDirection: 'column', gap: 24 }}>
+                <div style={{ padding: '0 28px 24px', display: 'flex', flexDirection: 'column', gap: 24 }}>
                     {children}
                 </div>
             </main>

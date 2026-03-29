@@ -45,7 +45,7 @@ const ShareButton = ({ entryId, onShare }: ShareButtonProps) => {
       </button>
       {showToast && (
         <div className={styles.toast}>
-          Link copied to vault 📋
+          Link copied
         </div>
       )}
     </>

@@ -183,14 +183,14 @@
 /* ── Bottom row ──────────────────────────────────────────── */
 .bottomRow {
   display: flex;
-  justify-content: flex-end;
+  justify-content: space-between;
   align-items: center;
   padding-top: 0.625rem;
   border-top: 0.5px solid var(--border);
   gap: 0.25rem;
 }
 
-.actions {
+.secondaryActions {
   display: flex;
   gap: 0.25rem;
   align-items: center;
@@ -258,10 +258,12 @@
   }
 
   .bottomRow {
-    justify-content: flex-end;
+    justify-content: space-between;
+    align-items: flex-start;
   }
 
-  .actions {
+  .secondaryActions {
     flex-wrap: wrap;
+    justify-content: flex-end;
   }
 }

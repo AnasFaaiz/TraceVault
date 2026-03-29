@@ -1,8 +1,8 @@
 /* ── Container ───────────────────────────────────────────── */
 .container {
-  max-width: 1180px;
-  margin: 0 auto;
-  padding: 0 1.25rem 3rem;
+  max-width: none;
+  margin: 0;
+  padding: 0 0 3rem 1.25rem;
 }
 
 .filterButton {
@@ -47,6 +47,36 @@
 .filterButton:hover .filterBadge {
   background: var(--paper);
   color: var(--ink);
+}
+
+.filterInlineButton {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border: 1px solid transparent;
+  border-radius: 0.5rem;
+  background: transparent;
+  color: var(--ink);
+  cursor: pointer;
+  transition: background 0.18s ease, border-color 0.18s ease, color 0.18s ease;
+}
+
+.filterInlineButton:hover {
+  background: var(--paper);
+  border-color: var(--border);
+}
+
+.filterInlineButton .filterBadge {
+  position: absolute;
+  top: -0.25rem;
+  right: -0.25rem;
+  min-width: 1rem;
+  height: 1rem;
+  padding: 0 0.25rem;
+  font-size: 0.58rem;
 }
 
 .newEntriesBanner {
@@ -106,14 +136,368 @@
 
 /* ── Feed grid ───────────────────────────────────────────── */
 .feed {
+  display: contents;
+}
+
+.feedLayout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) clamp(350px, 33vw, 460px);
+  gap: 2.5rem;
+  align-items: start;
+}
+
+.feedMainColumn {
+  min-width: 0;
+  display: contents;
+}
+
+.rightRail {
+  width: clamp(350px, 33vw, 460px);
+  border: 1px solid var(--border);
+  border-radius: 0.75rem;
+  background: var(--paper);
+  padding: 1rem;
   display: flex;
   flex-direction: column;
-  gap: 1rem;
+  gap: 0.85rem;
+  position: sticky;
+  top: 0.75rem;
+  margin-left: auto;
+}
+
+.railSection {
+  padding: 0;
+}
+
+.railTitle {
+  margin: 0;
+  font-family: 'DM Mono', monospace;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--ink);
+}
+
+.railHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.55rem;
+  margin: 0 0 0.65rem;
+}
+
+.periodSwitch {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.28rem;
+}
+
+.periodButton {
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--muted);
+  font-family: 'DM Mono', monospace;
+  font-size: 0.62rem;
+  letter-spacing: 0.04em;
+  padding: 0.18rem 0.42rem;
+  cursor: pointer;
+}
+
+.periodButton:hover {
+  border-color: var(--ink);
+  color: var(--ink);
+}
+
+.periodButtonActive {
+  border-color: var(--ink);
+  color: var(--ink);
+  background: #efeade;
+}
+
+.rankedList {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 0.7rem;
+}
+
+.trendingItem {
+  display: flex;
+  flex-direction: column;
+  gap: 0.38rem;
+  padding: 0.45rem 0;
+  border-bottom: 1px solid color-mix(in srgb, var(--border) 80%, transparent 20%);
+}
+
+.trendingItem:last-child {
+  border-bottom: none;
+  padding-bottom: 0;
+}
+
+.trendingTitleRow {
+  display: flex;
+  align-items: baseline;
+  gap: 0.45rem;
+}
+
+.rankedItem {
+  display: flex;
+  align-items: baseline;
+  gap: 0.45rem;
+}
+
+.rankNumber {
+  font-family: 'DM Mono', monospace;
+  font-size: 0.76rem;
+  color: var(--muted);
+  min-width: 1.1rem;
+}
+
+.rankedText {
+  font-size: 0.82rem;
+  color: var(--ink);
+  line-height: 1.4;
+}
+
+.trendingMetric {
+  margin: 0;
+  font-size: 0.74rem;
+  color: var(--muted);
+  line-height: 1.3;
+}
+
+.trendingMetric strong {
+  color: var(--ink);
+  font-weight: 600;
+}
+
+.contributorRow {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.avatarStack {
+  display: inline-flex;
+  align-items: center;
+}
+
+.contributorAvatarPlaceholder {
+  width: 0.9rem;
+  height: 0.9rem;
+  border-radius: 50%;
+  border: 1px solid var(--paper);
+  background: color-mix(in srgb, var(--muted) 35%, var(--paper) 65%);
+  margin-left: -0.3rem;
+}
+
+.contributorAvatarPlaceholder:first-child {
+  margin-left: 0;
+}
+
+.contributorCount {
+  font-size: 0.72rem;
+  color: var(--muted);
+}
+
+.trendingMeta,
+.trendingTime {
+  margin: 0;
+  font-size: 0.7rem;
+  color: var(--muted);
+}
+
+.trendingHighlightRow {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  flex-wrap: wrap;
+}
+
+.trendingBadge {
+  display: inline-flex;
+  align-items: center;
+  border: 1px solid var(--border);
+  background: #efeade;
+  color: var(--ink);
+  border-radius: 999px;
+  padding: 0.12rem 0.42rem;
+  font-size: 0.66rem;
+  font-family: 'DM Mono', monospace;
+  letter-spacing: 0.02em;
+}
+
+.insightBadge {
+  background: #e6efe6;
+  border-color: #b7ccb8;
+  color: #214a33;
+}
+
+.momentumBadge {
+  background: #f4e7cc;
+  border-color: #d6bd84;
+  color: #6f4d13;
+}
+
+.trendingTimeInline {
+  font-size: 0.66rem;
+  color: var(--muted);
+  font-family: 'DM Mono', monospace;
+}
+
+.rankedSkeletonList {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 0.72rem;
+}
+
+.rankedSkeletonItem {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.42rem;
+  padding: 0.52rem 0;
+  border-bottom: 1px solid color-mix(in srgb, var(--border) 80%, transparent 20%);
+}
+
+.rankedSkeletonItem:last-child {
+  border-bottom: none;
+  padding-bottom: 0;
+}
+
+.rankSkeletonTitle,
+.rankSkeletonAvatar,
+.rankSkeletonSocialText,
+.rankSkeletonTag,
+.rankSkeletonMeta,
+.rankSkeletonBadge,
+.rankSkeletonBadgeWide,
+.rankSkeletonTime,
+.rankSkeletonText,
+.rankSkeletonTitleShort {
+  border-radius: 999px;
+  background: linear-gradient(
+    90deg,
+    color-mix(in srgb, var(--border) 90%, white 10%) 0%,
+    color-mix(in srgb, var(--border) 76%, white 24%) 46%,
+    color-mix(in srgb, var(--border) 90%, white 10%) 100%
+  );
+  background-size: 220% 100%;
+  animation: railSkeletonPulse 1.45s ease-in-out infinite;
+}
+
+.rankSkeletonTitle {
+  width: 86%;
+  height: 0.72rem;
+}
+
+.rankSkeletonTitleShort {
+  width: 57%;
+  height: 0.68rem;
+}
+
+.rankSkeletonSocialRow {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.rankSkeletonAvatar {
+  width: 0.9rem;
+  height: 0.9rem;
+  border-radius: 50%;
+}
+
+.rankSkeletonSocialText {
+  width: 8.8rem;
+  height: 0.66rem;
+}
+
+.rankSkeletonTagsRow {
+  display: flex;
+  align-items: center;
+  gap: 0.32rem;
+}
+
+.rankSkeletonTag {
+  width: 3.65rem;
+  height: 1.02rem;
+  border-radius: 0.3rem;
+}
+
+.rankSkeletonMeta {
+  width: 8rem;
+  height: 0.68rem;
+}
+
+.rankSkeletonHighlightRow {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.rankSkeletonBadge {
+  width: 5.4rem;
+  height: 1.08rem;
+}
+
+.rankSkeletonBadgeWide {
+  width: 6.5rem;
+  height: 1.08rem;
+}
+
+.rankSkeletonTime {
+  width: 2.1rem;
+  height: 0.68rem;
+}
+
+.rankSkeletonText {
+  width: 92%;
+  height: 0.68rem;
+}
+
+@keyframes railSkeletonPulse {
+  0% {
+    background-position: 200% 0;
+  }
+
+  100% {
+    background-position: -200% 0;
+  }
+}
+
+.tagList {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
+.railTag {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.2rem 0.45rem;
+  border-radius: 0.3rem;
+  background: var(--border);
+  color: var(--ink);
+  font-size: 0.74rem;
+  font-weight: 500;
+}
+
+.railEmpty {
+  margin: 0;
+  font-size: 0.8rem;
+  color: var(--muted);
 }
 
 .feedGrid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  display: flex;
+  flex-direction: column;
   gap: 1rem;
 }
 
@@ -175,14 +559,22 @@
 .loadingMore,
 .skeletonRow {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: 1fr;
   gap: 1rem;
 }
 
 /* ── Responsive ──────────────────────────────────────────── */
 @media (max-width: 1024px) {
   .container {
-    max-width: 860px;
+    max-width: none;
+  }
+
+  .feedLayout {
+    grid-template-columns: 1fr;
+  }
+
+  .rightRail {
+    position: static;
   }
 
   .feedGrid,
@@ -195,6 +587,10 @@
 @media (max-width: 640px) {
   .container {
     padding: 0 0.75rem 2.5rem;
+  }
+
+  .rightRail {
+    padding: 0.7rem;
   }
 
   .filterButton {

@@ -5,8 +5,8 @@ import { Filter } from 'lucide-react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import api from '@/lib/api';
 import AppLayout from '@/components/dashboard/AppLayout';
-import FeedTabs from '@/components/feed/FeedTabs';
 import FeedCard from '@/components/feed/FeedCard';
+import FeedTabs from '@/components/feed/FeedTabs';
 import SkeletonCard from '@/components/feed/SkeletonCard';
 import FiltersPanel from '@/components/feed/FiltersPanel';
 import styles from './feed.module.css';
@@ -34,9 +34,8 @@ interface FeedEntry {
   };
   reactions: {
     useful: { count: number; reacted: boolean };
-    felt_this: { count: number; reacted: boolean };
     critical: { count: number; reacted: boolean };
-    noted: { count: number; reacted: boolean };
+    applied: { count: number; reacted: boolean };
   };
   vaulted: boolean;
 }
@@ -51,7 +50,31 @@ interface FeedResponse {
   };
 }
 
+type TrendingPeriod = '24h' | '7d' | '30d';
+
+interface TrendingTraceCard {
+  id: string;
+  title: string;
+  category: 'Technical Challenge' | 'Design Decision' | 'Lesson Learned';
+  severity: 'Minor' | 'Significant' | 'Pivotal';
+  tags: string[];
+  insightStrength: number;
+  learningMomentum: number;
+  contributors: {
+    avatars: string[];
+    count: number;
+  };
+  activityCount: number;
+  trendStartedAt: string;
+}
+
+interface TrendingResponse {
+  period: TrendingPeriod;
+  entries: TrendingTraceCard[];
+}
+
 const SKELETON_COUNT = 3;
+type FeedView = 'for_you' | 'from_your_stack';
 
 export default function FeedContent() {
   const router = useRouter();
@@ -59,7 +82,8 @@ export default function FeedContent() {
   const scrollContainerRef = useRef<HTMLDivElement>(null);
 
   // Get URL parameters
-  const view = (searchParams.get('view') || 'for_you') as 'for_you' | 'from_your_stack' | 'trending';
+  const viewParam = searchParams.get('view');
+  const view: FeedView = viewParam === 'from_your_stack' ? 'from_your_stack' : 'for_you';
   const tags = searchParams.get('tags');
   const templateTypes = searchParams.get('template_type');
   const impact = searchParams.get('impact');
@@ -75,6 +99,9 @@ export default function FeedContent() {
   const [newEntriesCount, setNewEntriesCount] = useState(0);
   const [isFilterPanelOpen, setIsFilterPanelOpen] = useState(false);
   const [activeFilterCount, setActiveFilterCount] = useState(0);
+  const [trendingPeriod, setTrendingPeriod] = useState<TrendingPeriod>('24h');
+  const [trendingEntries, setTrendingEntries] = useState<TrendingTraceCard[]>([]);
+  const [trendingLoading, setTrendingLoading] = useState(true);
   const loadingRef = useRef(false);
 
   // Calculate active filter count
@@ -209,6 +236,51 @@ export default function FeedContent() {
     });
   }, [entries, searchQuery]);
 
+  const fetchTrending = useCallback(async () => {
+    setTrendingLoading(true);
+    try {
+      const response = await api.get<TrendingResponse>('/reflections/trending', {
+        params: {
+          period: trendingPeriod,
+          limit: 5,
+        },
+      });
+      setTrendingEntries(response.data.entries || []);
+    } catch (error) {
+      console.error('Failed to fetch trending entries', error);
+      setTrendingEntries([]);
+    } finally {
+      setTrendingLoading(false);
+    }
+  }, [trendingPeriod]);
+
+  useEffect(() => {
+    fetchTrending();
+  }, [fetchTrending]);
+
+  const periodLabel = useMemo(() => {
+    if (trendingPeriod === '24h') return 'today';
+    if (trendingPeriod === '7d') return 'this week';
+    return 'this month';
+  }, [trendingPeriod]);
+
+  const getRelativeTrendTime = useCallback((isoDate: string) => {
+    const date = new Date(isoDate);
+    const now = new Date();
+    const diffMs = now.getTime() - date.getTime();
+
+    const mins = Math.floor(diffMs / 60000);
+    const hours = Math.floor(mins / 60);
+    const days = Math.floor(hours / 24);
+
+    if (mins < 1) return 'just now';
+    if (mins < 60) return `${mins}m ago`;
+    if (hours < 24) return `${hours}h ago`;
+    if (days < 7) return `${days}d ago`;
+
+    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  }, []);
+
   const getEmptyStateMessage = () => {
     if (searchQuery) {
       return {
@@ -221,13 +293,6 @@ export default function FeedContent() {
       return {
         title: 'No entries match your stack yet',
         subtitle: 'Start adding entries with tags to personalize this feed',
-      };
-    }
-
-    if (view === 'trending' && entries.length === 0 && !loading) {
-      return {
-        title: 'Nothing trending yet',
-        subtitle: 'Be the first to seal an entry',
       };
     }
 
@@ -246,11 +311,12 @@ export default function FeedContent() {
   const filterButton = (
     <button
       type="button"
-      className={styles.filterButton}
+      className={styles.filterInlineButton}
       onClick={() => setIsFilterPanelOpen(true)}
+      aria-label="Open filters"
+      title="Filters"
     >
       <Filter size={16} />
-      FILTERS
       {activeFilterCount > 0 && (
         <span className={styles.filterBadge}>{activeFilterCount}</span>
       )}
@@ -262,10 +328,9 @@ export default function FeedContent() {
       title="Community Feed"
       subtitle="Discover and engage with reflections from your engineering community"
       headerActions={filterButton}
+      headerLeftContent={<FeedTabs activeView={view} />}
     >
       <div className={styles.container}>
-        <FeedTabs activeView={view} />
-
         {newEntriesCount > 0 && (
           <button
             className={styles.newEntriesBanner}
@@ -276,43 +341,159 @@ export default function FeedContent() {
         )}
 
         <div className={styles.feed} ref={scrollContainerRef}>
-          {loading && entries.length === 0 ? (
-            <div className={styles.feedGrid}>
-              {Array.from({ length: SKELETON_COUNT }).map((_, i) => (
-                <SkeletonCard key={i} />
-              ))}
+          <div className={styles.feedLayout}>
+            <div className={styles.feedMainColumn}>
+              {loading && entries.length === 0 ? (
+                <div className={styles.feedGrid}>
+                  {Array.from({ length: SKELETON_COUNT }).map((_, i) => (
+                    <SkeletonCard key={i} />
+                  ))}
+                </div>
+              ) : filteredEntries.length > 0 ? (
+                <>
+                  <div className={styles.feedGrid}>
+                    {filteredEntries.map((entry) => (
+                      <FeedCard key={entry.id} entry={entry} />
+                    ))}
+                  </div>
+                  {loading && page > 1 && (
+                    <div className={styles.loadingMore}>
+                      <div className={styles.skeletonRow}>
+                        {Array.from({ length: 3 }).map((_, i) => (
+                          <SkeletonCard key={i} />
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </>
+              ) : emptyState ? (
+                <div className={styles.emptyState}>
+                  <h2 className={styles.emptyTitle}>{emptyState.title}</h2>
+                  <p className={styles.emptySubtitle}>{emptyState.subtitle}</p>
+                  {(tags || templateTypes || impact || confidence) && (
+                    <button
+                      className={styles.clearFiltersLink}
+                      onClick={() => router.push(`/feed?view=${view}`)}
+                    >
+                      Clear filters
+                    </button>
+                  )}
+                </div>
+              ) : null}
             </div>
-          ) : filteredEntries.length > 0 ? (
-            <>
-              <div className={styles.feedGrid}>
-                {filteredEntries.map((entry) => (
-                  <FeedCard key={entry.id} entry={entry} />
-                ))}
-              </div>
-              {loading && page > 1 && (
-                <div className={styles.loadingMore}>
-                  <div className={styles.skeletonRow}>
-                    {Array.from({ length: 3 }).map((_, i) => (
-                      <SkeletonCard key={i} />
+
+            <aside className={styles.rightRail}>
+              <section className={styles.railSection}>
+                <div className={styles.railHeader}>
+                  <h3 className={styles.railTitle}>Trending</h3>
+                  <div className={styles.periodSwitch}>
+                    {[
+                      { value: '24h', label: 'Today' },
+                      { value: '7d', label: 'Week' },
+                      { value: '30d', label: 'Month' },
+                    ].map((option) => (
+                      <button
+                        key={option.value}
+                        type="button"
+                        className={`${styles.periodButton} ${
+                          trendingPeriod === option.value ? styles.periodButtonActive : ''
+                        }`}
+                        onClick={() => setTrendingPeriod(option.value as TrendingPeriod)}
+                      >
+                        {option.label}
+                      </button>
                     ))}
                   </div>
                 </div>
-              )}
-            </>
-          ) : emptyState ? (
-            <div className={styles.emptyState}>
-              <h2 className={styles.emptyTitle}>{emptyState.title}</h2>
-              <p className={styles.emptySubtitle}>{emptyState.subtitle}</p>
-              {(tags || templateTypes || impact || confidence) && (
-                <button
-                  className={styles.clearFiltersLink}
-                  onClick={() => router.push(`/feed?view=${view}`)}
-                >
-                  Clear filters
-                </button>
-              )}
-            </div>
-          ) : null}
+
+                {trendingLoading ? (
+                  <ul className={styles.rankedSkeletonList} aria-hidden="true">
+                    {Array.from({ length: 3 }).map((_, index) => (
+                      <li key={index} className={styles.rankedSkeletonItem}>
+                        <span className={styles.rankSkeletonTitle} />
+                        <span className={styles.rankSkeletonTitleShort} />
+                        <div className={styles.rankSkeletonSocialRow}>
+                          <span className={styles.rankSkeletonAvatar} />
+                          <span className={styles.rankSkeletonSocialText} />
+                        </div>
+                        <div className={styles.rankSkeletonTagsRow}>
+                          <span className={styles.rankSkeletonTag} />
+                          <span className={styles.rankSkeletonTag} />
+                          <span className={styles.rankSkeletonTag} />
+                        </div>
+                        <span className={styles.rankSkeletonMeta} />
+                        <div className={styles.rankSkeletonHighlightRow}>
+                          <span className={styles.rankSkeletonBadge} />
+                          <span className={styles.rankSkeletonBadgeWide} />
+                          <span className={styles.rankSkeletonTime} />
+                        </div>
+                        <span className={styles.rankSkeletonText} />
+                      </li>
+                    ))}
+                  </ul>
+                ) : trendingEntries.length > 0 ? (
+                  <ol className={styles.rankedList}>
+                    {trendingEntries.map((entry, index) => (
+                      <li key={entry.id} className={styles.trendingItem}>
+                        <div className={styles.trendingTitleRow}>
+                          <span className={styles.rankedText}>{entry.title}</span>
+                        </div>
+
+                        <div className={styles.contributorRow}>
+                          <div className={styles.avatarStack}>
+                            {Array.from({
+                              length: Math.min(
+                                3,
+                                Math.max(entry.contributors.avatars.length, entry.contributors.count || 0),
+                              ),
+                            }).map((_, avatarIndex) => (
+                              <span
+                                key={avatarIndex}
+                                className={styles.contributorAvatarPlaceholder}
+                                aria-hidden="true"
+                              />
+                            ))}
+                          </div>
+                          <span className={styles.contributorCount}>
+                            {entry.contributors.count} developers faced this issue
+                          </span>
+                        </div>
+
+                        {entry.tags.length > 0 && (
+                          <div className={styles.tagList}>
+                            {entry.tags.slice(0, 3).map((tag) => (
+                              <span key={`${entry.id}-${tag}`} className={styles.railTag}>
+                                #{tag}
+                              </span>
+                            ))}
+                          </div>
+                        )}
+
+                        <p className={styles.trendingMeta}>
+                          {entry.category} · {entry.severity}
+                        </p>
+
+                        <div className={styles.trendingHighlightRow}>
+                          <span className={`${styles.trendingBadge} ${styles.insightBadge}`}>
+                            Insight Strength {entry.insightStrength}%
+                          </span>
+                          <span className={`${styles.trendingBadge} ${styles.momentumBadge}`}>
+                            Momentum {entry.learningMomentum >= 0 ? '+' : ''}
+                            {entry.learningMomentum}%
+                          </span>
+                          <span className={styles.trendingTimeInline}>
+                            {getRelativeTrendTime(entry.trendStartedAt)}
+                          </span>
+                        </div>
+                      </li>
+                    ))}
+                  </ol>
+                ) : (
+                  <p className={styles.railEmpty}>No trending entries yet</p>
+                )}
+              </section>
+            </aside>
+          </div>
         </div>
 
         <FiltersPanel

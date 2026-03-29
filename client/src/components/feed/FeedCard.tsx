@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import ReactionButtons from './ReactionButtons';
 import VaultButton from './VaultButton';
 import ShareButton from './ShareButton';
@@ -29,9 +29,8 @@ interface FeedCardEntry {
   };
   reactions: {
     useful: { count: number; reacted: boolean };
-    felt_this: { count: number; reacted: boolean };
     critical: { count: number; reacted: boolean };
-    noted: { count: number; reacted: boolean };
+    applied: { count: number; reacted: boolean };
   };
   vaulted: boolean;
 }
@@ -53,6 +52,8 @@ const TEMPLATE_LABELS: Record<string, string> = {
 
 const FeedCard = ({ entry }: { entry: FeedCardEntry }) => {
   const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
   const [reactions, setReactions] = useState(entry.reactions);
   const [vaulted, setVaulted]     = useState(entry.vaulted);
 
@@ -60,7 +61,15 @@ const FeedCard = ({ entry }: { entry: FeedCardEntry }) => {
 
   const handleTagClick = (tag: string, e: React.MouseEvent) => {
     e.stopPropagation();
-    router.push(`/feed?view=for_you&tags=${encodeURIComponent(tag)}`);
+    const params = new URLSearchParams(searchParams.toString());
+    params.set('q_draft', tag);
+    params.delete('q');
+
+    if (pathname.startsWith('/feed') && !params.get('view')) {
+      params.set('view', 'for_you');
+    }
+
+    router.push(`${pathname}?${params.toString()}`);
   };
 
   const getInitials = (name: string) =>
@@ -126,9 +135,8 @@ const FeedCard = ({ entry }: { entry: FeedCardEntry }) => {
 
       {/* BOTTOM ROW */}
       <div className={styles.bottomRow}>
-        <div className={styles.actions}>
-          <ReactionButtons entryId={entry.id} counts={reactions} onReactionChange={setReactions} />
-          <span className={styles.actionBtnDivider} />
+        <ReactionButtons entryId={entry.id} counts={reactions} onReactionChange={setReactions} />
+        <div className={styles.secondaryActions}>
           <VaultButton entryId={entry.id} vaulted={vaulted} onVaultChange={setVaulted} />
           <ShareButton entryId={entry.id} />
         </div>
