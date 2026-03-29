@@ -210,7 +210,10 @@ export default function AppLayout({ children, title, subtitle, projectId: preSel
             </aside>
 
             {/* ── Main ── */}
-            <main style={{ marginLeft: 70, width: 'calc(100% - 70px)', height: '100vh', overflowY: 'auto', display: 'flex', flexDirection: 'column' }}>
+            <main
+                aria-label={`${title} ${subtitle}`}
+                style={{ marginLeft: 70, width: 'calc(100% - 70px)', height: '100vh', overflowY: 'auto', display: 'flex', flexDirection: 'column' }}
+            >
                 <div style={{ padding: '14px 28px 24px', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', gap: 16 }}>
                     {headerLeftContent && (
                         <div style={{ flex: 1, minWidth: 0, display: 'flex', justifyContent: 'flex-start', paddingLeft: 156 }}>

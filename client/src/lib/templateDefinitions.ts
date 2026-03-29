@@ -336,14 +336,18 @@ export function getRequiredFields(templateType: TemplateType): string[] {
 
 export function validateFields(
   templateType: TemplateType,
-  fields: Record<string, any>,
+  fields: Record<string, unknown>,
 ): { valid: boolean; missingFields: string[] } {
   const requiredFields = getRequiredFields(templateType);
   const missingFields = requiredFields.filter(
-    (fieldName) =>
-      !fields[fieldName] ||
-      (typeof fields[fieldName] === 'string' &&
-        fields[fieldName].trim().length === 0),
+    (fieldName) => {
+      const value = fields[fieldName];
+      if (value === null || value === undefined || value === '') {
+        return true;
+      }
+
+      return typeof value === 'string' && value.trim().length === 0;
+    },
   );
 
   return {

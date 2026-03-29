@@ -241,12 +241,10 @@ export class ReflectionsController {
   @Get('tags')
   async getTags(@Query('search') search?: string) {
     const allTags = await this.reflectionsService.getAllTags();
-    
+
     if (search) {
       const searchLower = search.toLowerCase();
-      return allTags.filter((tag) =>
-        tag.toLowerCase().includes(searchLower),
-      );
+      return allTags.filter((tag) => tag.toLowerCase().includes(searchLower));
     }
 
     return allTags;
@@ -305,12 +303,9 @@ export class ReflectionsController {
     @Query('page') page?: string,
     @Query('limit') limit?: string,
   ) {
-    return this.reflectionsService.getVaultedEntries(
-      req.user.userId,
-      {
-        page: page ? parseInt(page) : 1,
-        limit: limit ? parseInt(limit) : 20,
-      },
-    );
+    return this.reflectionsService.getVaultedEntries(req.user.userId, {
+      page: page ? parseInt(page) : 1,
+      limit: limit ? parseInt(limit) : 20,
+    });
   }
 }

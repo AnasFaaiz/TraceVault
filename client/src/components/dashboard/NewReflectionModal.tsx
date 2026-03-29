@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { X, Loader2, Send, AlertCircle, ChevronRight } from 'lucide-react';
 import api from '@/lib/api';
 import { 
@@ -135,14 +135,7 @@ export default function NewReflectionModal({
         setValidationErrors([]);
     }, [initialData, preSelectedProjectId, isOpen]);
 
-    // Fetch projects on modal open
-    useEffect(() => {
-        if (isOpen) {
-            fetchProjects();
-        }
-    }, [isOpen]);
-
-    const fetchProjects = async () => {
+    const fetchProjects = useCallback(async () => {
         try {
             const res = await api.get('/projects');
             setProjects(res.data);
@@ -152,7 +145,14 @@ export default function NewReflectionModal({
         } catch (err) {
             console.error('Failed to fetch projects', err);
         }
-    };
+    }, [initialData, preSelectedProjectId]);
+
+    // Fetch projects on modal open
+    useEffect(() => {
+        if (isOpen) {
+            void fetchProjects();
+        }
+    }, [isOpen, fetchProjects]);
 
     const hasFilledFields = (): boolean => {
         if (formData.title.trim() !== '') return true;

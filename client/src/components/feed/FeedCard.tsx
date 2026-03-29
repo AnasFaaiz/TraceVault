@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import Image from 'next/image';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import ReactionButtons from './ReactionButtons';
 import VaultButton from './VaultButton';
@@ -89,7 +90,14 @@ const FeedCard = ({ entry }: { entry: FeedCardEntry }) => {
         <div className={styles.authorLeft}>
           <div className={styles.avatar}>
             {entry.author.avatarUrl ? (
-              <img src={entry.author.avatarUrl} alt={entry.author.username} />
+              <Image
+                src={entry.author.avatarUrl}
+                alt={entry.author.username}
+                width={28}
+                height={28}
+                className={styles.avatarImage}
+                unoptimized
+              />
             ) : (
               <span className={styles.initials}>{getInitials(entry.author.username)}</span>
             )}

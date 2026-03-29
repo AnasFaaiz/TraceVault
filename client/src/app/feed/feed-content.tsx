@@ -94,7 +94,6 @@ export default function FeedContent() {
   const [entries, setEntries] = useState<FeedEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(1);
-  const [totalPages, setTotalPages] = useState(1);
   const [hasMore, setHasMore] = useState(true);
   const [newEntriesCount, setNewEntriesCount] = useState(0);
   const [isFilterPanelOpen, setIsFilterPanelOpen] = useState(false);
@@ -143,7 +142,6 @@ export default function FeedContent() {
         }
 
         setPage(pageNum);
-        setTotalPages(Math.ceil(response.data.pagination.total / response.data.pagination.limit));
         setHasMore(response.data.pagination.hasMore);
       } catch (error) {
         console.error('Failed to fetch feed', error);
@@ -257,12 +255,6 @@ export default function FeedContent() {
   useEffect(() => {
     fetchTrending();
   }, [fetchTrending]);
-
-  const periodLabel = useMemo(() => {
-    if (trendingPeriod === '24h') return 'today';
-    if (trendingPeriod === '7d') return 'this week';
-    return 'this month';
-  }, [trendingPeriod]);
 
   const getRelativeTrendTime = useCallback((isoDate: string) => {
     const date = new Date(isoDate);
@@ -433,7 +425,7 @@ export default function FeedContent() {
                   </ul>
                 ) : trendingEntries.length > 0 ? (
                   <ol className={styles.rankedList}>
-                    {trendingEntries.map((entry, index) => (
+                    {trendingEntries.map((entry) => (
                       <li key={entry.id} className={styles.trendingItem}>
                         <div className={styles.trendingTitleRow}>
                           <span className={styles.rankedText}>{entry.title}</span>

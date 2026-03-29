@@ -17,11 +17,6 @@ const GlobalSearchBar = ({
   placeholder,
   rightActions,
 }: GlobalSearchBarProps) => {
-  const modifierKey =
-    typeof window !== 'undefined' && navigator.platform.toLowerCase().includes('mac')
-      ? '⌘'
-      : 'Ctrl';
-
   return (
     <form onSubmit={onSubmit} style={{ width: '100%', position: 'relative' }}>
       <Search

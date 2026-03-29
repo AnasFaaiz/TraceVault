@@ -4,13 +4,14 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { validateFields } from './template-definitions';
 import type { TemplateType } from './template-definitions';
 
 type TrendingPeriod = '24h' | '7d' | '30d';
 
-interface TrendingTraceCard {
+export interface TrendingTraceCard {
   id: string;
   title: string;
   category: 'Technical Challenge' | 'Design Decision' | 'Lesson Learned';
@@ -29,6 +30,43 @@ interface TrendingTraceCard {
 @Injectable()
 export class ReflectionsService {
   constructor(private prisma: PrismaService) {}
+
+  private getFieldsObject(
+    fields: Prisma.JsonValue | null | undefined,
+  ): Record<string, unknown> {
+    if (fields && typeof fields === 'object' && !Array.isArray(fields)) {
+      return fields as Record<string, unknown>;
+    }
+
+    return {};
+  }
+
+  private getFieldString(
+    fields: Prisma.JsonValue | null | undefined,
+    fieldName: string,
+  ): string | undefined {
+    const value = this.getFieldsObject(fields)[fieldName];
+    if (typeof value !== 'string') {
+      return undefined;
+    }
+
+    const trimmed = value.trim();
+    return trimmed.length > 0 ? trimmed : undefined;
+  }
+
+  private getConfidenceFromReflection(reflection: {
+    template_type?: string | null;
+    fields?: Prisma.JsonValue | null;
+  }): string | null {
+    if (
+      reflection.template_type !== 'bug_autopsy' &&
+      reflection.template_type !== 'technical_challenge'
+    ) {
+      return null;
+    }
+
+    return this.getFieldString(reflection.fields, 'confidence') ?? null;
+  }
 
   private getTrendingWindow(period: TrendingPeriod) {
     const now = Date.now();
@@ -97,11 +135,17 @@ export class ReflectionsService {
     reactions: Array<{ type: string }>,
     vaultCount: number,
   ): number {
-    const weighted = this.computeWeightedActivity(reactions, vaultCount).weighted;
+    const weighted = this.computeWeightedActivity(
+      reactions,
+      vaultCount,
+    ).weighted;
     return Math.max(0, Math.min(100, Math.round(weighted * 8)));
   }
 
-  private computeLearningMomentum(currentWeighted: number, previousWeighted: number): number {
+  private computeLearningMomentum(
+    currentWeighted: number,
+    previousWeighted: number,
+  ): number {
     if (currentWeighted <= 0) return 0;
     if (previousWeighted <= 0) return 100;
 
@@ -158,7 +202,7 @@ export class ReflectionsService {
       template_type: string;
       impact?: string;
       tags?: string[];
-      fields?: Record<string, any>;
+      fields?: Record<string, unknown>;
       content?: string; // Legacy support
     },
   ) {
@@ -177,18 +221,26 @@ export class ReflectionsService {
       }
     }
 
+    const createData: Prisma.ReflectionUncheckedCreateInput = {
+      title: data.title,
+      category: data.category,
+      template_type: data.template_type,
+      impact: data.impact || 'minor',
+      tags: data.tags || [],
+      projectId,
+      userId,
+    };
+
+    if (data.fields !== undefined) {
+      createData.fields = data.fields as Prisma.InputJsonValue;
+    }
+
+    if (data.content !== undefined) {
+      createData.content = data.content;
+    }
+
     return this.prisma.reflection.create({
-      data: {
-        title: data.title,
-        category: data.category,
-        template_type: data.template_type,
-        impact: data.impact || 'minor',
-        tags: data.tags || [],
-        ...(data.fields !== undefined ? { fields: data.fields } : {}),
-        ...(data.content !== undefined ? { content: data.content } : {}), // Legacy support
-        projectId,
-        userId,
-      },
+      data: createData,
     });
   }
 
@@ -300,8 +352,8 @@ export class ReflectionsService {
   }) {
     const { userId, projectId, search, category, impact, limit = 50 } = filters;
 
-    const where: Record<string, any> = {};
-    const and: Record<string, any>[] = [];
+    const where: Prisma.ReflectionWhereInput = {};
+    const and: Prisma.ReflectionWhereInput[] = [];
 
     if (userId) and.push({ project: { userId } });
     if (projectId) and.push({ projectId });
@@ -350,7 +402,7 @@ export class ReflectionsService {
       template_type?: string;
       impact?: string;
       tags?: string[];
-      fields?: Record<string, any>;
+      fields?: Record<string, unknown>;
       content?: string; // Legacy support
     },
   ) {
@@ -369,9 +421,23 @@ export class ReflectionsService {
       }
     }
 
+    const updateData: Prisma.ReflectionUpdateInput = {};
+
+    if (data.title !== undefined) updateData.title = data.title;
+    if (data.category !== undefined) updateData.category = data.category;
+    if (data.template_type !== undefined) {
+      updateData.template_type = data.template_type;
+    }
+    if (data.impact !== undefined) updateData.impact = data.impact;
+    if (data.tags !== undefined) updateData.tags = data.tags;
+    if (data.fields !== undefined) {
+      updateData.fields = data.fields as Prisma.InputJsonValue;
+    }
+    if (data.content !== undefined) updateData.content = data.content;
+
     return this.prisma.reflection.update({
       where: { id },
-      data,
+      data: updateData,
     });
   }
 
@@ -413,21 +479,17 @@ export class ReflectionsService {
    * Get reaction counts and user's reaction status for an entry
    */
   async getReactionCounts(entryId: string, userId?: string) {
-    const prisma = this.prisma as any;
     const types = ['useful', 'critical', 'applied'];
-    const result: Record<
-      string,
-      { count: number; reacted: boolean }
-    > = {};
+    const result: Record<string, { count: number; reacted: boolean }> = {};
 
     for (const type of types) {
-      const count = await prisma.reaction.count({
+      const count = await this.prisma.reaction.count({
         where: { entryId, type },
       });
 
       let reacted = false;
       if (userId) {
-        const userReaction = await prisma.reaction.findUnique({
+        const userReaction = await this.prisma.reaction.findUnique({
           where: {
             entryId_userId_type: {
               entryId,
@@ -449,8 +511,7 @@ export class ReflectionsService {
    * Check if entry is vaulted by user
    */
   async getVaultStatus(userId: string, entryId: string): Promise<boolean> {
-    const prisma = this.prisma as any;
-    const vaultEntry = await prisma.vaultEntry.findUnique({
+    const vaultEntry = await this.prisma.vaultEntry.findUnique({
       where: {
         userId_entryId: {
           userId,
@@ -467,7 +528,7 @@ export class ReflectionsService {
    */
   private getSnippet(reflection: {
     template_type?: string | null;
-    fields?: any;
+    fields?: Prisma.JsonValue | null;
     content?: string | null;
   }): string {
     const MAX_SNIPPET_LENGTH = 100;
@@ -486,8 +547,11 @@ export class ReflectionsService {
       };
 
       const fieldName = fieldMap[reflection.template_type];
-      if (fieldName && reflection.fields[fieldName]) {
-        snippet = String(reflection.fields[fieldName]);
+      const fieldValue = fieldName
+        ? this.getFieldString(reflection.fields, fieldName)
+        : undefined;
+      if (fieldValue) {
+        snippet = fieldValue;
       }
     }
 
@@ -509,15 +573,22 @@ export class ReflectionsService {
    */
   private calculateReadTime(reflection: {
     template_type?: string | null;
-    fields?: any;
+    fields?: Prisma.JsonValue | null;
     content?: string | null;
   }): string {
     let totalChars = 0;
 
     if (reflection.fields) {
-      Object.values(reflection.fields).forEach((value) => {
+      const fieldValues = Object.values(
+        this.getFieldsObject(reflection.fields),
+      );
+      fieldValues.forEach((value) => {
         if (typeof value === 'string') {
           totalChars += value.length;
+        } else if (Array.isArray(value)) {
+          totalChars += value
+            .filter((item): item is string => typeof item === 'string')
+            .join(' ').length;
         }
       });
     }
@@ -563,7 +634,7 @@ export class ReflectionsService {
       template_type?: string | null;
       impact: string;
       tags: string[];
-      fields?: any;
+      fields?: Prisma.JsonValue | null;
       content?: string | null;
       createdAt: Date;
       userId: string;
@@ -582,7 +653,9 @@ export class ReflectionsService {
     return Promise.all(
       reflections.map(async (r) => {
         const reactions = await this.getReactionCounts(r.id, userId);
-        const vaulted = userId ? await this.getVaultStatus(userId, r.id) : false;
+        const vaulted = userId
+          ? await this.getVaultStatus(userId, r.id)
+          : false;
 
         return {
           id: r.id,
@@ -593,12 +666,7 @@ export class ReflectionsService {
           tags: r.tags,
           snippet: this.getSnippet(r),
           readTime: this.calculateReadTime(r),
-          confidence:
-            (r.template_type === 'bug_autopsy' ||
-              r.template_type === 'technical_challenge') &&
-            (r.fields as any)?.confidence
-              ? (r.fields as any).confidence
-              : null,
+          confidence: this.getConfidenceFromReflection(r),
           createdAt: r.createdAt,
           relativeDate: this.getRelativeDate(r.createdAt),
           author: {
@@ -634,12 +702,11 @@ export class ReflectionsService {
       limit?: number;
     },
   ) {
-    const prisma = this.prisma as any;
     const page = pagination?.page || 1;
     const limit = pagination?.limit || 20;
     const skip = (page - 1) * limit;
 
-    const baseWhere: Record<string, any> = {};
+    const baseWhere: Prisma.ReflectionWhereInput = {};
 
     // Apply filters
     if (filters?.tags && filters.tags.length > 0) {
@@ -652,8 +719,10 @@ export class ReflectionsService {
       baseWhere.impact = filters.impact;
     }
 
-    let where: Record<string, any> = baseWhere;
-    let orderBy:  any = { createdAt: 'desc' };
+    const where: Prisma.ReflectionWhereInput = { ...baseWhere };
+    const orderBy: Prisma.ReflectionOrderByWithRelationInput = {
+      createdAt: 'desc',
+    };
 
     if (view === 'trending') {
       // Trending: most reactions in last 30 days
@@ -679,7 +748,7 @@ export class ReflectionsService {
     }
 
     // Fetch reflections with included relations
-    const reflections = await prisma.reflection.findMany({
+    const reflections = await this.prisma.reflection.findMany({
       where,
       include: {
         project: {
@@ -713,11 +782,8 @@ export class ReflectionsService {
         );
 
         // If no strict matches, fall back to for_you logic
-        if (
-          filteredReflections.length === 0 &&
-          filters?.tags === undefined
-        ) {
-          const forYouReflections = await prisma.reflection.findMany({
+        if (filteredReflections.length === 0 && filters?.tags === undefined) {
+          const forYouReflections = await this.prisma.reflection.findMany({
             where: {
               ...baseWhere,
               tags: { hasSome: userTags },
@@ -733,12 +799,17 @@ export class ReflectionsService {
                   },
                 },
               },
+              reactions: {
+                select: {
+                  id: true,
+                },
+              },
             },
             orderBy,
             skip,
             take: limit,
           });
-          filteredReflections = forYouReflections as any;
+          filteredReflections = forYouReflections;
         }
       }
     }
@@ -750,7 +821,7 @@ export class ReflectionsService {
           r.template_type === 'bug_autopsy' ||
           r.template_type === 'technical_challenge'
         ) {
-          const confidence = (r.fields as any)?.confidence;
+          const confidence = this.getFieldString(r.fields, 'confidence');
           return confidence === filters.confidence;
         }
         return false;
@@ -768,18 +839,13 @@ export class ReflectionsService {
     }
 
     // Build response
-    const response = await this.buildFeedResponse(
-      filteredReflections,
-      userId,
-    );
+    const response = await this.buildFeedResponse(filteredReflections, userId);
 
     // Count total for pagination
-    const total = await prisma.reflection.count({
+    const total = await this.prisma.reflection.count({
       where: {
         ...where,
-        ...(view === 'from_your_stack'
-          ? {}
-          : {}), // Simplified total count
+        ...(view === 'from_your_stack' ? {} : {}), // Simplified total count
       },
     });
 
@@ -802,8 +868,6 @@ export class ReflectionsService {
     period: TrendingPeriod = '24h',
     limit: number = 5,
   ) {
-    const prisma = this.prisma as any;
-
     if (!['24h', '7d', '30d'].includes(period)) {
       throw new BadRequestException('Invalid period. Use 24h, 7d, or 30d');
     }
@@ -811,7 +875,7 @@ export class ReflectionsService {
     const safeLimit = Math.min(Math.max(limit || 5, 3), 5);
     const { currentStart, previousStart } = this.getTrendingWindow(period);
 
-    const reflections = await prisma.reflection.findMany({
+    const reflections = await this.prisma.reflection.findMany({
       where: {
         OR: [
           { reactions: { some: { createdAt: { gte: currentStart } } } },
@@ -893,7 +957,9 @@ export class ReflectionsService {
         const trendingItem: TrendingTraceCard = {
           id: reflection.id,
           title: reflection.title,
-          category: this.mapCategory(reflection.template_type || reflection.category),
+          category: this.mapCategory(
+            reflection.template_type || reflection.category,
+          ),
           severity: this.mapSeverity(reflection.impact),
           tags: reflection.tags || [],
           insightStrength,
@@ -903,7 +969,9 @@ export class ReflectionsService {
             count: contributorIds.size,
           },
           activityCount,
-          trendStartedAt: new Date(startedAt || reflection.createdAt.getTime()).toISOString(),
+          trendStartedAt: new Date(
+            startedAt || reflection.createdAt.getTime(),
+          ).toISOString(),
         };
 
         return {
@@ -912,7 +980,15 @@ export class ReflectionsService {
           item: trendingItem,
         };
       })
-      .filter((entry): entry is { rankScore: number; createdAt: number; item: TrendingTraceCard } => entry !== null)
+      .filter(
+        (
+          entry,
+        ): entry is {
+          rankScore: number;
+          createdAt: number;
+          item: TrendingTraceCard;
+        } => entry !== null,
+      )
       .sort((a, b) => {
         if (b.rankScore !== a.rankScore) return b.rankScore - a.rankScore;
         if (b.item.activityCount !== a.item.activityCount) {
@@ -937,9 +1013,8 @@ export class ReflectionsService {
     userId: string,
     type: 'useful' | 'critical' | 'applied',
   ) {
-    const prisma = this.prisma as any;
     // Check if reaction already exists
-    const existingReaction = await prisma.reaction.findUnique({
+    const existingReaction = await this.prisma.reaction.findUnique({
       where: {
         entryId_userId_type: {
           entryId,
@@ -951,7 +1026,7 @@ export class ReflectionsService {
 
     if (existingReaction) {
       // Toggle off: clear reactions for this entry/user to enforce single-selection model.
-      await prisma.reaction.deleteMany({
+      await this.prisma.reaction.deleteMany({
         where: {
           entryId,
           userId,
@@ -959,7 +1034,7 @@ export class ReflectionsService {
       });
     } else {
       // Toggle on: replace any prior reaction with the new one.
-      await prisma.$transaction(async (tx) => {
+      await this.prisma.$transaction(async (tx) => {
         await tx.reaction.deleteMany({
           where: {
             entryId,
@@ -990,9 +1065,8 @@ export class ReflectionsService {
    * Toggle vault for an entry (add or remove from vault)
    */
   async toggleVault(entryId: string, userId: string) {
-    const prisma = this.prisma as any;
     // Check if entry is already vaulted
-    const existingVault = await prisma.vaultEntry.findUnique({
+    const existingVault = await this.prisma.vaultEntry.findUnique({
       where: {
         userId_entryId: {
           userId,
@@ -1003,14 +1077,14 @@ export class ReflectionsService {
 
     if (existingVault) {
       // Remove from vault (toggle off)
-      await prisma.vaultEntry.delete({
+      await this.prisma.vaultEntry.delete({
         where: {
           id: existingVault.id,
         },
       });
     } else {
       // Add to vault (toggle on)
-      await prisma.vaultEntry.create({
+      await this.prisma.vaultEntry.create({
         data: {
           userId,
           entryId,
@@ -1029,13 +1103,12 @@ export class ReflectionsService {
     userId: string,
     pagination?: { page?: number; limit?: number },
   ) {
-    const prisma = this.prisma as any;
     const page = pagination?.page || 1;
     const limit = pagination?.limit || 20;
     const skip = (page - 1) * limit;
 
     // Get vaulted entries
-    const vaultEntries = await prisma.vaultEntry.findMany({
+    const vaultEntries = await this.prisma.vaultEntry.findMany({
       where: { userId },
       include: {
         entry: {
@@ -1071,12 +1144,7 @@ export class ReflectionsService {
           tags: ve.entry.tags,
           snippet: this.getSnippet(ve.entry),
           readTime: this.calculateReadTime(ve.entry),
-          confidence:
-            (ve.entry.template_type === 'bug_autopsy' ||
-              ve.entry.template_type === 'technical_challenge') &&
-            (ve.entry.fields as any)?.confidence
-              ? (ve.entry.fields as any).confidence
-              : null,
+          confidence: this.getConfidenceFromReflection(ve.entry),
           createdAt: ve.entry.createdAt,
           relativeDate: this.getRelativeDate(ve.entry.createdAt),
           author: {
@@ -1094,7 +1162,7 @@ export class ReflectionsService {
       }),
     );
 
-    const total = await prisma.vaultEntry.count({
+    const total = await this.prisma.vaultEntry.count({
       where: { userId },
     });
 

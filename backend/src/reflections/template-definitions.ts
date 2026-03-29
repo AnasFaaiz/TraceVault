@@ -1,6 +1,6 @@
 /**
  * Template Definitions for Structured Fields
- * 
+ *
  * This file defines all 6 template types and their fields.
  * Used by both frontend and backend for form validation and display.
  */
@@ -43,7 +43,7 @@ export const DESIGN_DECISION: TemplateDefinition = {
   value: 'design_decision',
   category: 'Design Decision',
   categoryValue: 'design_decision',
-  description: 'I chose X over Y and here\'s the full reasoning',
+  description: "I chose X over Y and here's the full reasoning",
   fields: [
     {
       name: 'what_triggered',
@@ -58,7 +58,7 @@ export const DESIGN_DECISION: TemplateDefinition = {
       label: 'What other options did you consider?',
       type: 'textarea',
       placeholder:
-        'List the paths you could have taken instead. Why didn\'t you pick them?',
+        "List the paths you could have taken instead. Why didn't you pick them?",
       required: true,
     },
     {
@@ -73,7 +73,8 @@ export const DESIGN_DECISION: TemplateDefinition = {
       name: 'constraints',
       label: 'What constraints shaped this decision?',
       type: 'text',
-      placeholder: 'Budget, timeline, team skill level, existing infrastructure...',
+      placeholder:
+        'Budget, timeline, team skill level, existing infrastructure...',
       required: false,
     },
     {
@@ -94,16 +95,22 @@ export const TECHNICAL_CHALLENGE: TemplateDefinition = {
   value: 'technical_challenge',
   category: 'Technical Challenge',
   categoryValue: 'technical_challenge',
-  description: 'I hit a wall and here\'s how I broke through it',
+  description: "I hit a wall and here's how I broke through it",
   fields: [
     {
       name: 'what_broke',
       label: 'What was broken or unclear?',
       type: 'textarea',
       placeholder:
-        'Describe the problem. What was happening that shouldn\'t? What error did you see?',
+        "Describe the problem. What was happening that shouldn't? What error did you see?",
       required: true,
-      quickOptions: ['Runtime exception', 'Build failed', 'Data mismatch', 'Auth issue', 'Performance regression'],
+      quickOptions: [
+        'Runtime exception',
+        'Build failed',
+        'Data mismatch',
+        'Auth issue',
+        'Performance regression',
+      ],
       quickMode: 'single',
     },
     {
@@ -111,9 +118,15 @@ export const TECHNICAL_CHALLENGE: TemplateDefinition = {
       label: 'What did you try first — and why did it fail?',
       type: 'textarea',
       placeholder:
-        'Document the approaches you tested. Why didn\'t they work? What new information did each attempt reveal?',
+        "Document the approaches you tested. Why didn't they work? What new information did each attempt reveal?",
       required: true,
-      quickOptions: ['Restarted service', 'Checked logs', 'Rolled back recent change', 'Added debug output', 'Compared with working environment'],
+      quickOptions: [
+        'Restarted service',
+        'Checked logs',
+        'Rolled back recent change',
+        'Added debug output',
+        'Compared with working environment',
+      ],
       quickMode: 'multi',
     },
     {
@@ -173,7 +186,7 @@ export const TRADEOFF: TemplateDefinition = {
       label: 'What constraints forced this tradeoff?',
       type: 'text',
       placeholder:
-        'Why couldn\'t you have it both ways? Budget? Timeline? Business priorities?',
+        "Why couldn't you have it both ways? Budget? Timeline? Business priorities?",
       required: false,
     },
     {
@@ -224,7 +237,7 @@ export const LESSON_LEARNED: TemplateDefinition = {
       label: 'The rule of thumb going forward',
       type: 'text',
       placeholder:
-        'The one-liner you\'ll remember in 6 months when you face something similar',
+        "The one-liner you'll remember in 6 months when you face something similar",
       required: true,
     },
     {
@@ -246,22 +259,27 @@ export const BUG_AUTOPSY: TemplateDefinition = {
   value: 'bug_autopsy',
   category: 'Bug Autopsy',
   categoryValue: 'bug_autopsy',
-  description: 'It\'s fixed but let\'s understand the body',
+  description: "It's fixed but let's understand the body",
   fields: [
     {
       name: 'symptoms',
-      label:
-        'What did you see? Console output, UI behavior, error messages',
+      label: 'What did you see? Console output, UI behavior, error messages',
       type: 'textarea',
       placeholder:
         'The observable behavior. What did the user see? What error message appeared? Include stack traces if available.',
       required: true,
-      quickOptions: ['UI glitch', '500 server error', 'Timeout', 'Data not updating', 'Unexpected redirect'],
+      quickOptions: [
+        'UI glitch',
+        '500 server error',
+        'Timeout',
+        'Data not updating',
+        'Unexpected redirect',
+      ],
       quickMode: 'multi',
     },
     {
       name: 'ruled_out',
-      label: 'What approaches did you try that didn\'t work?',
+      label: "What approaches did you try that didn't work?",
       type: 'textarea',
       placeholder:
         'The debugging steps. What did you eliminate? Why were they not the cause?',
@@ -279,7 +297,8 @@ export const BUG_AUTOPSY: TemplateDefinition = {
       name: 'root_cause',
       label: 'Root cause in one sentence',
       type: 'text',
-      placeholder: 'The fundamental reason the bug existed. One clear sentence.',
+      placeholder:
+        'The fundamental reason the bug existed. One clear sentence.',
       required: true,
     },
     {
@@ -305,33 +324,50 @@ export const INTEGRATION_NOTE: TemplateDefinition = {
   fields: [
     {
       name: 'the_gotcha',
-      label: 'What\'s the undocumented behavior or gotcha?',
+      label: "What's the undocumented behavior or gotcha?",
       type: 'textarea',
       placeholder:
         'Describe the unexpected behavior or limitation you discovered in this library/service.',
       required: true,
-      quickOptions: ['Version-specific behavior', 'Hidden config requirement', 'Docs mismatch', 'SDK method side effect', 'Environment-specific issue'],
+      quickOptions: [
+        'Version-specific behavior',
+        'Hidden config requirement',
+        'Docs mismatch',
+        'SDK method side effect',
+        'Environment-specific issue',
+      ],
       quickMode: 'single',
     },
     {
       name: 'how_discovered',
-      label:
-        'How did you discover it — and how painful was it?',
+      label: 'How did you discover it — and how painful was it?',
       type: 'textarea',
       placeholder:
         'Did you find it by accident? In production? In tests? Document the pain points.',
       required: true,
-      quickOptions: ['By accident', 'In production incident', 'While writing tests', 'During code review', 'From user report'],
+      quickOptions: [
+        'By accident',
+        'In production incident',
+        'While writing tests',
+        'During code review',
+        'From user report',
+      ],
       quickMode: 'single',
     },
     {
       name: 'fix_or_workaround',
-      label: 'What\'s the fix or workaround?',
+      label: "What's the fix or workaround?",
       type: 'textarea',
       placeholder:
         'How do you work around it? Is there a fix? How should you use the library correctly?',
       required: true,
-      quickOptions: ['Pinned version', 'Added guard condition', 'Changed initialization order', 'Added retry/fallback', 'Used alternate API path'],
+      quickOptions: [
+        'Pinned version',
+        'Added guard condition',
+        'Changed initialization order',
+        'Added retry/fallback',
+        'Used alternate API path',
+      ],
       quickMode: 'multi',
     },
     {
