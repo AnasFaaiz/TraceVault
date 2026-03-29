@@ -17,7 +17,7 @@ api.interceptors.request.use((config) => {
   return config;
 });
 
-// Interceptor to handle 401 errors
+// Interceptor to handle 401 errors.
 api.interceptors.response.use(
   (response) => response,
   (error) => {
