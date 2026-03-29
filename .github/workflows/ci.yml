@@ -97,9 +97,10 @@ jobs:
                   git fetch --all
                   git reset --hard origin/main
                   cd backend
+                  pm2 kill
                   npm ci
                   npx prisma generate
                   npx prisma migrate deploy
                   npm run build
-                  pm2 restart tracevault-backend
+                  pm2 resurrect
                   pm2 save
