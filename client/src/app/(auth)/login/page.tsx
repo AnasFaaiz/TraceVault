@@ -1,5 +1,6 @@
 "use client";
 
+import Link from 'next/link';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
@@ -31,7 +32,11 @@ export default function LoginPage() {
     }
   }, [_hasHydrated, token, router]);
 
-  const { register, handleSubmit, formState: { errors } } = useForm<LoginFormValues>({
+  const {
+    register,
+    handleSubmit,
+    formState: { errors },
+  } = useForm<LoginFormValues>({
     resolver: zodResolver(loginSchema),
   });
 
@@ -45,7 +50,10 @@ export default function LoginPage() {
       router.push('/feed');
     } catch (err) {
       const axiosError = err as { response?: { data?: { message?: string } } };
-      setError(axiosError.response?.data?.message || 'Login failed. Please check your credentials.');
+      setError(
+        axiosError.response?.data?.message ||
+          'Login failed. Please check your credentials.',
+      );
     } finally {
       setIsLoading(false);
     }
@@ -55,10 +63,20 @@ export default function LoginPage() {
     <AuthLayout type="login">
       <form onSubmit={handleSubmit(onSubmit)} className={styles.form}>
         {error && (
-          <div className={styles.errorText} style={{ textAlign: 'center', marginBottom: '16px', padding: '8px', background: 'rgba(239, 68, 68, 0.1)', borderRadius: '6px' }}>
+          <div
+            className={styles.errorText}
+            style={{
+              textAlign: 'center',
+              marginBottom: '16px',
+              padding: '8px',
+              background: 'rgba(239, 68, 68, 0.1)',
+              borderRadius: '6px',
+            }}
+          >
             {error}
           </div>
         )}
+
         <div className={styles.formGroup}>
           <label className={styles.label}>Email Address</label>
           <div className={styles.inputWrapper}>
@@ -73,14 +91,30 @@ export default function LoginPage() {
         </div>
 
         <div className={styles.formGroup}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <div
+            style={{
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+            }}
+          >
             <label className={styles.label}>Password</label>
-            <a href="#" className={styles.footerLink} style={{ fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Forgot?</a>
+            <Link
+              href="/forgot-password"
+              className={styles.footerLink}
+              style={{
+                fontSize: '11px',
+                textTransform: 'uppercase',
+                letterSpacing: '0.05em',
+              }}
+            >
+              Forgot?
+            </Link>
           </div>
           <div className={styles.inputWrapper}>
             <input
               {...register('password')}
-              type={showPassword ? "text" : "password"}
+              type={showPassword ? 'text' : 'password'}
               placeholder="••••••••"
               className={`${styles.input} ${styles.passwordInput}`}
             />
@@ -89,18 +123,16 @@ export default function LoginPage() {
               onClick={() => setShowPassword(!showPassword)}
               className={styles.passwordToggle}
               aria-label={showPassword ? 'Hide password' : 'Show password'}
-              >
-                {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+            >
+              {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
             </button>
           </div>
-          {errors.password && <p className={styles.errorText}>{errors.password.message}</p>}
+          {errors.password && (
+            <p className={styles.errorText}>{errors.password.message}</p>
+          )}
         </div>
 
-        <button
-          disabled={isLoading}
-          type="submit"
-          className={styles.submitBtn}
-        >
+        <button disabled={isLoading} type="submit" className={styles.submitBtn}>
           {isLoading ? <Loader2 className="animate-spin" size={18} /> : 'Sign In to Vault'}
         </button>
       </form>
