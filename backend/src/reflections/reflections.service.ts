@@ -706,7 +706,12 @@ export class ReflectionsService {
     const limit = pagination?.limit || 20;
     const skip = (page - 1) * limit;
 
-    const baseWhere: Prisma.ReflectionWhereInput = {};
+    const baseWhere: Prisma.ReflectionWhereInput = {
+      OR: [
+        { visibility: 'public' },
+        { userId }, // Only show own private entries
+      ],
+    };
 
     // Apply filters
     if (filters?.tags && filters.tags.length > 0) {
@@ -715,7 +720,7 @@ export class ReflectionsService {
     if (filters?.templateTypes && filters.templateTypes.length > 0) {
       baseWhere.template_type = { in: filters.templateTypes };
     }
-    if (filters?.impact) {
+    if (filters?.impact && filters.impact !== 'all') {
       baseWhere.impact = filters.impact;
     }
 
@@ -726,33 +731,24 @@ export class ReflectionsService {
     const hasExplicitTagFilter = !!(filters?.tags && filters.tags.length > 0);
 
     if (view === 'trending') {
-      // Trending: most reactions in last 30 days
       const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
       where.createdAt = { gte: thirtyDaysAgo };
-      // Note: Deep ordering by relation count requires raw query
-      // For now, we'll fetch and sort in-memory
     } else {
-      // For You and From Your Stack: personalized by user's tags
       const userTags = await this.getUserTagHistory(userId);
 
-      if (userTags.length === 0) {
-        // No tags in user's history: return trending
-        const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
-        where.createdAt = { gte: thirtyDaysAgo };
-      } else if (view === 'for_you') {
-        // For You: at least one matching tag, plus always include user's own entries
-        // when no explicit tag filter is applied.
+      if (userTags.length > 0 && view === 'for_you') {
         if (hasExplicitTagFilter) {
           where.tags = { hasSome: userTags };
         } else {
           where.OR = [
-            { tags: { hasSome: userTags } },
-            { project: { userId } },
+            { tags: { hasSome: userTags }, visibility: 'public' },
+            { userId }, // Own entries are always relevant
           ];
         }
       } else if (view === 'from_your_stack') {
-        // From Your Stack: all entry tags exist in user's tags
-        // This requires more complex logic; we'll filter in-memory
+        // Specialized logic handled later
+      } else {
+        // Fallback for new users: Show global feed (baseWhere already limits to public/own)
       }
     }
 

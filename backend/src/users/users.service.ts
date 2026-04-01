@@ -7,7 +7,12 @@ export class UsersService {
   constructor(private prisma: PrismaService) {}
 
   // createUser()
-  async createUser(data: { email: string; password: string; name: string }) {
+  async createUser(data: {
+    email: string;
+    password: string;
+    name: string;
+    username?: string;
+  }) {
     return this.prisma.user.create({
       data,
     });
@@ -58,6 +63,18 @@ export class UsersService {
         passwordResetToken: null,
         passwordResetExpires: null,
       },
+    });
+  }
+  async findById(id: string) {
+    return this.prisma.user.findUnique({
+      where: { id },
+    });
+  }
+
+  async updateUsername(userId: string, username: string): Promise<User> {
+    return this.prisma.user.update({
+      where: { id: userId },
+      data: { username },
     });
   }
 }

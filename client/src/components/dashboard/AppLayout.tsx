@@ -101,7 +101,7 @@ export default function AppLayout({ children, title, subtitle, projectId: preSel
 
     const navItems = [
         { id: 'feed', icon: <Globe size={16} />, label: 'Community Feed', href: '/feed' },
-        { id: 'dashboard', icon: <Layout size={16} />, label: 'Personal Dashboard', href: '/dashboard' },
+        { id: 'dashboard', icon: <Layout size={16} />, label: 'Dashboard', href: '/dashboard' },
         { id: 'projects', icon: <Folder size={16} />, label: 'My Projects', href: '/projects' },
         { id: 'vault', icon: <Archive size={16} />, label: 'Vault', href: '/vault' },
         { id: 'reflections', icon: <History size={16} />, label: 'History', href: '/history' },
@@ -188,7 +188,20 @@ export default function AppLayout({ children, title, subtitle, projectId: preSel
 
                 {/* User + logout */}
                 <div style={{ borderTop: '1px solid var(--border)', paddingTop: 16 }}>
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: isSidebarOpen ? 'flex-start' : 'center', gap: 10, marginBottom: 12 }}>
+                    <Link
+                        href={`/u/${user.username}`}
+                        title="View profile"
+                        style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: isSidebarOpen ? 'flex-start' : 'center',
+                            gap: 10,
+                            marginBottom: 12,
+                            padding: isSidebarOpen ? '0' : '2px 0',
+                            borderRadius: 8,
+                            textDecoration: 'none',
+                        }}
+                    >
                         <div style={{ width: 32, height: 32, borderRadius: '50%', background: '#0e0d0b', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'var(--mono)', fontSize: 12, color: '#f5f2eb', fontWeight: 500, flexShrink: 0 }}>
                             {initials}
                         </div>
@@ -198,7 +211,7 @@ export default function AppLayout({ children, title, subtitle, projectId: preSel
                                 <p style={{ fontFamily: 'var(--mono)', fontSize: 10, color: 'var(--muted)' }}>Engineer</p>
                             </div>
                         )}
-                    </div>
+                    </Link>
                     <button
                         onClick={logout}
                         title="Sign out"
@@ -214,7 +227,7 @@ export default function AppLayout({ children, title, subtitle, projectId: preSel
                 aria-label={`${title} ${subtitle}`}
                 style={{ marginLeft: 70, width: 'calc(100% - 70px)', height: '100vh', overflowY: 'auto', display: 'flex', flexDirection: 'column' }}
             >
-                <div style={{ padding: '14px 28px 24px', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', gap: 16 }}>
+                <div style={{ padding: '14px 28px 24px', display: 'flex', justifyContent: headerLeftContent ? 'space-between' : 'flex-end', alignItems: 'flex-end', gap: 16 }}>
                     {headerLeftContent && (
                         <div style={{ flex: 1, minWidth: 0, display: 'flex', justifyContent: 'flex-start', paddingLeft: 156 }}>
                             {headerLeftContent}

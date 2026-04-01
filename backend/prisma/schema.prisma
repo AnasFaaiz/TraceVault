@@ -10,8 +10,12 @@ datasource db {
 model User {
   id             String       @id @default(uuid())
   email          String       @unique
+  username       String?      @unique
   password       String
   name           String
+  bio            String?
+  avatarUrl      String?
+  isPrivate      Boolean      @default(false)
   passwordResetToken   String?
   passwordResetExpires DateTime?
   createdAt      DateTime     @default(now())
@@ -20,6 +24,7 @@ model User {
   reflections    Reflection[]
   reactions      Reaction[]
   vaultedEntries VaultEntry[]
+  collections    Collection[]
 }
 
 model Project {
@@ -41,6 +46,7 @@ model Reflection {
   template_type String? // Structured template type (same as category for new entries)
   impact        String   @default("minor")
   tags          String[]
+  visibility    String   @default("public") // "public" | "private"
 
   // NEW: Structured fields (JSONB in PostgreSQL)
   fields Json? // Structured key-value pairs for the selected template
@@ -59,6 +65,7 @@ model Reflection {
 
   reactions Reaction[]
   vaultedBy VaultEntry[]
+  collections CollectionEntry[]
 }
 
 model Reaction {
@@ -86,4 +93,27 @@ model VaultEntry {
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([userId, entryId])
+}
+
+model Collection {
+  id          String   @id @default(uuid())
+  name        String
+  description String?
+  visibility  String   @default("private")
+  userId      String
+  user        User     @relation(fields: [userId], references: [id])
+  entries     CollectionEntry[]
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model CollectionEntry {
+  id           String     @id @default(uuid())
+  collectionId String
+  collection   Collection @relation(fields: [collectionId], references: [id], onDelete: Cascade)
+  entryId      String
+  entry        Reflection @relation(fields: [entryId], references: [id], onDelete: Cascade)
+  addedAt      DateTime   @default(now())
+  
+  @@unique([collectionId, entryId])
 }

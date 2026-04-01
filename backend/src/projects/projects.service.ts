@@ -25,15 +25,84 @@ export class ProjectsService {
   }
 
   async getUserProjects(userId: string) {
-    return this.prisma.project.findMany({
+    const projects = await this.prisma.project.findMany({
       where: { userId },
       include: {
-        _count: {
-          select: { reflections: true },
+        reflections: {
+          select: {
+            id: true,
+            createdAt: true,
+            category: true,
+            template_type: true,
+            impact: true,
+            tags: true,
+          },
         },
       },
       orderBy: { createdAt: 'desc' },
     });
+
+    const enrichedProjects = projects.map((project) => {
+      const reflections = project.reflections || [];
+      const entryCount = reflections.length;
+
+      // Last activity
+      const lastActivityAt =
+        reflections.length > 0
+          ? reflections.reduce((latest, current) =>
+              new Date(current.createdAt) > new Date(latest.createdAt)
+                ? current
+                : latest,
+            ).createdAt
+          : null;
+
+      // Template Breakdown
+      const templateMap: Record<string, number> = {};
+      reflections.forEach((r) => {
+        const type = r.template_type || r.category || 'general';
+        templateMap[type] = (templateMap[type] || 0) + 1;
+      });
+      const templateBreakdown = Object.entries(templateMap)
+        .map(([template_type, count]) => ({ template_type, count }))
+        .sort((a, b) => b.count - a.count);
+
+      // Impact Summary
+      const impactSummary = {
+        pivotalCount: reflections.filter((r) => r.impact === 'pivotal').length,
+        significantCount: reflections.filter((r) => r.impact === 'significant')
+          .length,
+        minorCount: reflections.filter((r) => r.impact === 'minor').length,
+      };
+
+      // Top Tags
+      const tagCounts: Record<string, number> = {};
+      reflections.forEach((r) => {
+        (r.tags || []).forEach((tag: string) => {
+          tagCounts[tag] = (tagCounts[tag] || 0) + 1;
+        });
+      });
+      const topTags = Object.entries(tagCounts)
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 4)
+        .map(([tag]) => tag);
+
+      return {
+        id: project.id,
+        name: project.name,
+        description: project.description,
+        createdAt: project.createdAt,
+        lastActivityAt,
+        entryCount,
+        templateBreakdown,
+        topTags,
+        impactSummary,
+      };
+    });
+
+    return {
+      projects: enrichedProjects,
+      totalProjects: projects.length,
+    };
   }
 
   private async assertProjectOwner(userId: string, projectId: string) {

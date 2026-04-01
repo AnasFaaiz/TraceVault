@@ -23,10 +23,14 @@ export class AuthService {
     }
 
     const hashedPassword = await bcrypt.hash(password, 10);
+    const username =
+      name.toLowerCase().replace(/\s+/g, '') + Math.floor(Math.random() * 1000);
+
     const user = await this.usersService.createUser({
       email,
       password: hashedPassword,
       name,
+      username,
     });
 
     const token = this.jwtService.sign({
@@ -36,7 +40,12 @@ export class AuthService {
 
     return {
       message: 'User registered successfully',
-      user: { id: user.id, email: user.email, name: user.name },
+      user: {
+        id: user.id,
+        email: user.email,
+        name: user.name,
+        username: user.username,
+      },
       accessToken: token,
     };
   }
@@ -61,7 +70,12 @@ export class AuthService {
 
     return {
       message: 'Login successfully',
-      user: { id: user.id, email: user.email, name: user.name },
+      user: {
+        id: user.id,
+        email: user.email,
+        name: user.name,
+        username: user.username,
+      },
       accessToken: token,
     };
   }
@@ -123,6 +137,29 @@ export class AuthService {
 
     return {
       message: 'Password reset successful',
+    };
+  }
+
+  async getMe(userId: string) {
+    let user = await this.usersService.findById(userId);
+
+    if (!user) {
+      throw new BadRequestException('User not found');
+    }
+
+    // Backfill username if missing
+    if (!user.username) {
+      const generatedUsername =
+        (user.name || 'user').toLowerCase().replace(/\s+/g, '') +
+        Math.floor(Math.random() * 1000);
+      user = await this.usersService.updateUsername(userId, generatedUsername);
+    }
+
+    return {
+      id: user.id,
+      email: user.email,
+      name: user.name,
+      username: user.username,
     };
   }
 }

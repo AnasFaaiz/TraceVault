@@ -1,0 +1,395 @@
+.profileContainer {
+  max-width: 1000px;
+  margin: 0 auto;
+  padding: 40px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 60px;
+}
+
+/* Section 1: Identity Header */
+.identityHeader {
+  display: flex;
+  align-items: flex-start;
+  gap: 32px;
+  animation: fadeIn 0.8s ease-out;
+}
+
+.avatarContainer {
+  width: 120px;
+  height: 120px;
+  border-radius: 50%;
+  background: var(--secondary);
+  border: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-serif);
+  font-size: 48px;
+  color: var(--primary);
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+.avatarImage {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.identityInfo {
+  flex: 1;
+}
+
+.displayName {
+  font-size: 32px;
+  margin-bottom: 4px;
+}
+
+.username {
+  font-family: var(--font-mono);
+  color: var(--text-muted);
+  font-size: 14px;
+  margin-bottom: 12px;
+}
+
+.bio {
+  font-size: 16px;
+  color: var(--foreground);
+  margin-bottom: 16px;
+  font-weight: 300;
+}
+
+.metadata {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  color: var(--text-muted);
+  font-size: 13px;
+  margin-bottom: 20px;
+}
+
+.stackTags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 24px;
+}
+
+.stackTag {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--primary);
+  background: rgba(200, 133, 42, 0.1);
+  padding: 4px 10px;
+  border-radius: 100px;
+}
+
+.headerActions {
+  display: flex;
+  gap: 12px;
+}
+
+.btn {
+  padding: 8px 16px;
+  border-radius: 6px;
+  font-size: 14px;
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  border: 1px solid var(--border);
+  background: transparent;
+}
+
+.btnPrimary {
+  background: var(--foreground);
+  color: var(--background);
+  border-color: var(--foreground);
+}
+
+.btnPrimary:hover {
+  background: var(--primary);
+  border-color: var(--primary);
+}
+
+.btnSecondary:hover {
+  background: var(--secondary);
+}
+
+/* Section 2: Stats Cards */
+.statsGrid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 20px;
+}
+
+.statCard {
+  background: var(--secondary);
+  border: 1px solid var(--border);
+  padding: 24px;
+  border-radius: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.statValue {
+  font-family: var(--font-serif);
+  font-size: 24px;
+  color: var(--foreground);
+}
+
+.statSubtext {
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+/* Section 3: Heatmap */
+.heatmapSection {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.sectionLabel {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.heatmapContainer {
+  width: 100%;
+  overflow-x: auto;
+  background: var(--secondary);
+  padding: 24px;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+}
+
+.heatmapScroll {
+  min-width: 800px;
+}
+
+.heatmapGrid {
+  display: grid;
+  grid-template-columns: repeat(53, 1fr);
+  grid-template-rows: repeat(7, 1fr);
+  grid-auto-flow: column;
+  gap: 3px;
+}
+
+.heatmapCell {
+  width: 12px;
+  height: 12px;
+  border-radius: 2px;
+  background: var(--border);
+  position: relative;
+}
+
+.dayLow { background: #b4dfd4; }
+.dayMedium { background: #69c4ac; }
+.dayHigh { background: #14b8a6; }
+
+.heatmapLabels {
+  display: grid;
+  grid-template-columns: repeat(53, 1fr);
+  margin-bottom: 8px;
+  font-size: 10px;
+  color: var(--text-muted);
+}
+
+.dayLabels {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  padding-right: 8px;
+  font-size: 10px;
+  color: var(--text-muted);
+  height: 102px; /* 7 * 12 + 6 * 3 */
+}
+
+/* Section 3B: Entry List */
+.entryListSection {
+  margin-top: 40px;
+}
+
+.tabs {
+  display: flex;
+  gap: 32px;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 32px;
+}
+
+.tab {
+  padding: 12px 0;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-muted);
+  border-bottom: 2px solid transparent;
+  background: none;
+  border-top: none;
+  border-left: none;
+  border-right: none;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.tabActive {
+  color: var(--foreground);
+  border-bottom-color: var(--primary);
+}
+
+.monthGroup {
+  margin-bottom: 48px;
+}
+
+.monthLabel {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--text-muted);
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 16px;
+  text-transform: uppercase;
+}
+
+.entryRow {
+  display: flex;
+  align-items: center;
+  padding: 12px 0;
+  gap: 16px;
+  border-bottom: 1px solid rgba(0,0,0,0.05);
+}
+
+.entryTypeDot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.entryTitle {
+  flex: 1;
+  font-size: 15px;
+  font-weight: 500;
+}
+
+.impactBadge {
+  font-size: 11px;
+  padding: 2px 8px;
+  border-radius: 4px;
+  background: var(--secondary);
+  border: 1px solid var(--border);
+  color: var(--text-muted);
+}
+
+.pivotal { color: #e11d48; border-color: rgba(225, 29, 72, 0.2); background: rgba(225, 29, 72, 0.05); }
+
+.reaction {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.entryDate {
+  font-size: 12px;
+  color: var(--text-muted);
+  width: 60px;
+  text-align: right;
+}
+
+/* Section 4: Projects */
+.projectsGrid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 20px;
+}
+
+.projectCard {
+  background: var(--background);
+  border: 1px solid var(--border);
+  padding: 24px;
+  border-radius: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  transition: transform 0.2s ease;
+}
+
+.projectCard:hover {
+  transform: translateY(-4px);
+  border-color: var(--primary);
+}
+
+.projectName {
+  font-family: var(--font-serif);
+  font-size: 20px;
+}
+
+.projectStats {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+/* Section 5: Breakdown */
+.breakdownGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 40px;
+  background: var(--secondary);
+  padding: 32px;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+}
+
+.breakdownItem {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.progressBarTitle {
+  display: flex;
+  justify-content: space-between;
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+.progressContainer {
+  height: 8px;
+  background: var(--border);
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.progressBar {
+  height: 100%;
+  background: var(--primary);
+  border-radius: 4px;
+}
+
+@media (max-width: 768px) {
+  .identityHeader { flex-direction: column; align-items: center; text-align: center; }
+  .statsGrid { grid-template-columns: 1fr; overflow-x: auto; display: flex; padding-bottom: 10px; }
+  .statCard { min-width: 240px; }
+  .projectsGrid { grid-template-columns: 1fr; }
+  .breakdownGrid { grid-template-columns: 1fr; }
+}
+
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+.skeleton {
+  background: linear-gradient(90deg, #ece8df 25%, #f5f2eb 50%, #ece8df 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite linear;
+  border-radius: 8px;
+}

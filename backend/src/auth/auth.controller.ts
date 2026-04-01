@@ -8,8 +8,8 @@ export class AuthController {
 
   @Get('me')
   @UseGuards(AuthGuard('jwt'))
-  getProfile(@Req() req: { user: { userId: string; email: string } }) {
-    return req.user;
+  async getProfile(@Req() req: { user: { userId: string; email: string } }) {
+    return this.authService.getMe(req.user.userId);
   }
 
   @Post('register')
