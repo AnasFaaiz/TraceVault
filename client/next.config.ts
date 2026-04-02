@@ -1,5 +1,7 @@
 import type { NextConfig } from "next";
 
+const backendOrigin = process.env.BACKEND_ORIGIN || "http://127.0.0.1:4000";
+
 const nextConfig: NextConfig = {
   /* config options here */
   reactCompiler: true,
@@ -7,7 +9,7 @@ const nextConfig: NextConfig = {
     return [
       {
         source: '/api/:path*',
-        destination: 'http://54.234.194.97:4000/api/:path*',
+        destination: `${backendOrigin}/api/:path*`,
       },
     ];
   },
