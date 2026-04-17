@@ -17,14 +17,15 @@ jobs:
         uses: docker/setup-compose-action@v2
       
       - name: Build and Start Backend
+        # We inject a dummy DB URL so the container doesn't crash on GitHub
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/postgres
         run: |
-          # We only use the prod file to avoid frontend variable errors
           docker compose -f docker-compose.prod.yml up -d --build
           
       - name: Wait for backend to be healthy
         run: |
           for i in {1..30}; do
-            # Checking if the container is running and responding
             if [ "$(docker inspect -f '{{.State.Running}}' tracevault-backend-1)" == "true" ]; then
               echo "Backend is up!" && exit 0
             fi
@@ -37,7 +38,43 @@ jobs:
       - name: Stop and clean up
         run: docker compose -f docker-compose.prod.yml down
 
-  # ... (deploy-preview and deploy-production jobs for Vercel stay the same)
+  deploy-preview:
+    needs: check
+    runs-on: ubuntu-latest
+    if: github.ref != 'refs/heads/main'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - run: npm ci --prefix ./client
+      - name: Vercel Deploy
+        run: |
+          npx vercel pull --yes --environment=preview --token ${{ secrets.VERCEL_TOKEN }}
+          npx vercel build --token ${{ secrets.VERCEL_TOKEN }}
+          npx vercel deploy --prebuilt --token ${{ secrets.VERCEL_TOKEN }}
+        env:
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+
+  deploy-production:
+    needs: check
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - run: npm ci --prefix ./client
+      - name: Vercel Deploy
+        run: |
+          npx vercel pull --yes --environment=production --token ${{ secrets.VERCEL_TOKEN }}
+          npx vercel build --prod --token ${{ secrets.VERCEL_TOKEN }}
+          npx vercel deploy --prebuilt --prod --token ${{ secrets.VERCEL_TOKEN }}
+        env:
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
 
   deploy-backend:
     needs: check
@@ -60,6 +97,6 @@ jobs:
             git fetch --all
             git reset --hard origin/main
             
-            # Use ONLY the production file to manage the EC2 containers
+            # Use the production file to restart only the backend
             docker compose -f docker-compose.prod.yml down
             docker compose -f docker-compose.prod.yml up -d --build
