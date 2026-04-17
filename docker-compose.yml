@@ -1,0 +1,43 @@
+version: '3.9'
+services:
+  db:
+    image: postgres:16-alpine
+    restart: always
+    environment:
+      POSTGRES_USER: tracevault
+      POSTGRES_PASSWORD: tracevault
+      POSTGRES_DB: tracevault
+    ports:
+      - '5432:5432'
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+
+  backend:
+    build: ./backend
+    restart: always
+    depends_on:
+      - db
+    environment:
+      DATABASE_URL: postgresql://neondb_owner:npg_3Y2IOmosBXGU@ep-red-breeze-aj5yqv6b-pooler.c-3.us-east-2.aws.neon.tech/neondb?sslmode=require
+      NODE_ENV: production
+    ports:
+      - '4000:4000'
+    command: sh -c "npx prisma migrate deploy && node dist/main.js"
+    volumes:
+      - ./backend/prisma:/app/prisma
+
+  frontend:
+    build: ./client
+    restart: always
+    depends_on:
+      - backend
+    environment:
+      NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL}
+      NODE_ENV: production
+    ports:
+      - '3000:3000'
+    volumes:
+      - ./client/public:/app/public
+
+volumes:
+  pgdata:

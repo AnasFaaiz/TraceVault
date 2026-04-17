@@ -13,10 +13,12 @@ import AppLayout from '@/components/dashboard/AppLayout';
 interface Reflection {
     id: string;
     title: string;
-    type: string;
+    createdAt: string;
+    type: string; // legacy
+    category: string;
+    template_type: string;
     content: string;
     impact: string;
-    createdAt: string;
 }
 
 interface ProjectData {
@@ -29,12 +31,30 @@ interface ProjectData {
     _count: { reflections: number };
 }
 
+const TEMPLATE_TABS = [
+    { key: 'ALL', label: 'All' },
+    { key: 'bug_autopsy', label: 'Bug Autopsy' },
+    { key: 'design_decision', label: 'Design Decision' },
+    { key: 'tradeoff', label: 'Tradeoff' },
+    { key: 'lesson_learned', label: 'Lesson Learned' },
+    { key: 'integration_note', label: 'Integration Note' },
+    { key: 'technical_challenge', label: 'Technical Challenge' },
+];
+
 const TYPE_STYLES: Record<string, { label: string; bg: string; color: string }> = {
-    challenge: { label: 'Challenge', bg: '#fdf0ea', color: '#8b3e2a' },
-    decision: { label: 'Decision', bg: '#edf7f4', color: '#2a6b5e' },
-    tradeoff: { label: 'Tradeoff', bg: '#fdf6e8', color: '#854f0b' },
-    lesson: { label: 'Lesson', bg: '#f0f0f8', color: '#4a4a8a' },
+        bug_autopsy: { label: 'Bug Autopsy', bg: '#fdf0ea', color: '#8b3e2a' },
+        design_decision: { label: 'Design Decision', bg: '#edf7f4', color: '#2a6b5e' },
+        tradeoff: { label: 'Tradeoff', bg: '#fdf6e8', color: '#854f0b' },
+        lesson_learned: { label: 'Lesson Learned', bg: '#f0f0f8', color: '#4a4a8a' },
+        integration_note: { label: 'Integration Note', bg: '#e8f6f7', color: '#2a6b6b' },
+        technical_challenge: { label: 'Technical Challenge', bg: '#f0f8fa', color: '#2a4a6b' },
+        // fallback
+        challenge: { label: 'Challenge', bg: '#fdf0ea', color: '#8b3e2a' },
+        decision: { label: 'Decision', bg: '#edf7f4', color: '#2a6b5e' },
+        lesson: { label: 'Lesson', bg: '#f0f0f8', color: '#4a4a8a' },
 };
+    // Template tab state
+    const [activeTab, setActiveTab] = useState<string>('ALL');
 
 export default function ProjectDetailsPage({ params }: { params: Promise<{ id: string }> }) {
     const { id: projectId } = use(params);
@@ -96,6 +116,19 @@ export default function ProjectDetailsPage({ params }: { params: Promise<{ id: s
         );
     }
 
+    // Filtering logic
+    const getTemplateKey = (r: Reflection) => {
+        // Prefer template_type, then category, then type
+        return (
+            (r.template_type || r.category || r.type || '').toLowerCase()
+        );
+    };
+
+    const filteredReflections = project.reflections.filter(r => {
+        if (activeTab === 'ALL') return true;
+        return getTemplateKey(r) === activeTab;
+    });
+
     return (
         <AppLayout 
             title={project.name} 
@@ -137,10 +170,35 @@ export default function ProjectDetailsPage({ params }: { params: Promise<{ id: s
                                 </button>
                             </div>
 
+                            {/* Template filter tabs */}
+                            <div style={{ display: 'flex', gap: 8, marginBottom: 24 }}>
+                                {TEMPLATE_TABS.map(tab => (
+                                    <button
+                                        key={tab.key}
+                                        onClick={() => setActiveTab(tab.key)}
+                                        style={{
+                                            padding: '6px 16px',
+                                            borderRadius: 8,
+                                            border: activeTab === tab.key ? '2px solid var(--amber)' : '1px solid var(--border)',
+                                            background: activeTab === tab.key ? 'var(--paper-dark)' : '#fff',
+                                            color: activeTab === tab.key ? 'var(--ink)' : 'var(--muted)',
+                                            fontWeight: activeTab === tab.key ? 700 : 400,
+                                            fontSize: 13,
+                                            cursor: 'pointer',
+                                            outline: 'none',
+                                            transition: 'all 0.15s',
+                                        }}
+                                    >
+                                        {tab.label}
+                                    </button>
+                                ))}
+                            </div>
+
                             <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-                                {project.reflections.length > 0 ? (
-                                    project.reflections.map(r => {
-                                        const typeStyle = TYPE_STYLES[r.type?.toLowerCase()] ?? TYPE_STYLES.lesson;
+                                {filteredReflections.length > 0 ? (
+                                    filteredReflections.map(r => {
+                                        const typeKey = getTemplateKey(r);
+                                        const typeStyle = TYPE_STYLES[typeKey] ?? TYPE_STYLES.lesson;
                                         return (
                                             <div key={r.id} style={{ background: '#fff', border: '1px solid var(--border)', borderRadius: 12, padding: 24 }}>
                                                 <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 16 }}>
@@ -177,8 +235,8 @@ export default function ProjectDetailsPage({ params }: { params: Promise<{ id: s
                                     })
                                 ) : (
                                     <div style={{ padding: 60, textAlign: 'center', background: '#fff', border: '1px dashed var(--border)', borderRadius: 12 }}>
-                                        <p style={{ fontFamily: 'var(--serif)', fontSize: 20, fontStyle: 'italic', color: 'var(--muted)' }}>No reflections recorded yet.</p>
-                                        <p style={{ fontSize: 14, color: 'var(--muted)', marginTop: 8 }}>Every great project starts with its first documented decision.</p>
+                                        <p style={{ fontFamily: 'var(--serif)', fontSize: 20, fontStyle: 'italic', color: 'var(--muted)' }}>No reflections recorded yet for this tab.</p>
+                                        <p style={{ fontSize: 14, color: 'var(--muted)', marginTop: 8 }}>Try another template tab or add a new reflection.</p>
                                     </div>
                                 )}
                             </div>
