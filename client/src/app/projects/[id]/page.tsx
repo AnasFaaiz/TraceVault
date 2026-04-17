@@ -53,10 +53,11 @@ const TYPE_STYLES: Record<string, { label: string; bg: string; color: string }> 
         decision: { label: 'Decision', bg: '#edf7f4', color: '#2a6b5e' },
         lesson: { label: 'Lesson', bg: '#f0f0f8', color: '#4a4a8a' },
 };
+
+export default function ProjectDetailsPage({ params }: { params: Promise<{ id: string }> }) {
     // Template tab state
     const [activeTab, setActiveTab] = useState<string>('ALL');
 
-export default function ProjectDetailsPage({ params }: { params: Promise<{ id: string }> }) {
     const { id: projectId } = use(params);
     const router = useRouter();
     const { open } = useReflectionModal();
