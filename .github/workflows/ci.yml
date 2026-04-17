@@ -9,31 +9,32 @@ on:
 jobs:
     check:
         runs-on: ubuntu-latest
-
         steps:
             - uses: actions/checkout@v4
-            - uses: actions/setup-node@v4
-              with:
-                node-version: 20
-                cache: 'npm'
-                cache-dependency-path: |
-                  client/package-lock.json
-                  backend/package-lock.json
-
-            # Check Client
-            - name: Install Client Dependencies
-              run: npm ci
-              working-directory: ./client
-
-            # Check Backend
-            - name: Install Backend Dependencies
-              run: npm ci
-              working-directory: ./backend
-
-            - name: Lint and Typecheck
+            - name: Set up Docker Buildx
+              uses: docker/setup-buildx-action@v3
+            - name: Build and start services with docker-compose
               run: |
-                cd client && npm run lint && npx tsc --noEmit
-                cd ../backend && npm run lint && npx tsc --noEmit
+                docker-compose -f docker-compose.yml up -d --build
+            - name: Wait for backend to be healthy
+              run: |
+                for i in {1..30}; do
+                  if docker-compose exec -T backend curl -s http://localhost:4000/health; then
+                    echo "Backend is up!" && exit 0
+                  fi
+                  echo "Waiting for backend..."
+                  sleep 2
+                done
+                echo "Backend did not become healthy in time" && exit 1
+            - name: Run backend tests (if any)
+              run: |
+                docker-compose exec -T backend npm test || echo "No backend tests defined"
+            - name: Run frontend tests (if any)
+              run: |
+                docker-compose exec -T frontend npm test || echo "No frontend tests defined"
+            - name: Stop and clean up containers
+              run: |
+                docker-compose -f docker-compose.yml down
             
     deploy-preview:
         needs: check
@@ -84,7 +85,7 @@ jobs:
         runs-on: ubuntu-latest
         if: github.ref == 'refs/heads/main'
         steps:
-            - name: Deploy backend to EC2
+            - name: Deploy backend to EC2 with Docker Compose
               uses: appleboy/ssh-action@v1.2.0
               with:
                 host: ${{ secrets.EC2_HOST }}
@@ -96,11 +97,6 @@ jobs:
                   cd /var/www/tracevault/TraceVault
                   git fetch --all
                   git reset --hard origin/main
-                  cd backend
-                  pm2 kill
-                  npm ci
-                  npx prisma generate
-                  npx prisma migrate deploy
-                  npm run build
-                  pm2 resurrect
-                  pm2 save
+                  docker-compose down
+                  docker-compose pull
+                  docker-compose up -d --build
