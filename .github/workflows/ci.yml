@@ -15,13 +15,13 @@ jobs:
               uses: docker/setup-buildx-action@v3
             - name: Set up Docker Compose
               uses: docker/setup-compose-action@v2
-            - name: Build and start services with docker-compose
+            - name: Build and start services with docker compose
               run: |
-                docker-compose -f docker-compose.yml up -d --build
+                docker compose -f docker-compose.yml up -d --build
             - name: Wait for backend to be healthy
               run: |
                 for i in {1..30}; do
-                  if docker-compose exec -T backend curl -s http://localhost:4000/health; then
+                  if docker compose exec -T backend curl -s http://localhost:4000/health; then
                     echo "Backend is up!" && exit 0
                   fi
                   echo "Waiting for backend..."
@@ -30,13 +30,13 @@ jobs:
                 echo "Backend did not become healthy in time" && exit 1
             - name: Run backend tests (if any)
               run: |
-                docker-compose exec -T backend npm test || echo "No backend tests defined"
+                docker compose exec -T backend npm test || echo "No backend tests defined"
             - name: Run frontend tests (if any)
               run: |
-                docker-compose exec -T frontend npm test || echo "No frontend tests defined"
+                docker compose exec -T frontend npm test || echo "No frontend tests defined"
             - name: Stop and clean up containers
               run: |
-                docker-compose -f docker-compose.yml down
+                docker compose -f docker-compose.yml down
             
     deploy-preview:
         needs: check
@@ -99,6 +99,6 @@ jobs:
                   cd /var/www/tracevault/TraceVault
                   git fetch --all
                   git reset --hard origin/main
-                  docker-compose down
-                  docker-compose pull
-                  docker-compose up -d --build
+                  docker compose down
+                  docker compose pull
+                  docker compose up -d --build
