@@ -1,4 +1,10 @@
-# ... (on/push/pull_request sections remain the same)
+name: CI/CD
+
+on:
+  push:
+    branches: [main, dev]
+  pull_request:
+    branches: [main]
 
 jobs:
   check:
@@ -10,7 +16,6 @@ jobs:
       - name: Set up Docker Compose
         uses: docker/setup-compose-action@v2
       
-      # Build and start only backend/db for testing to save time
       - name: Build and Start Services
         run: |
           docker compose up -d --build backend db
@@ -18,7 +23,6 @@ jobs:
       - name: Wait for backend to be healthy
         run: |
           for i in {1..30}; do
-            # Note: Changed from /health to / (or whatever your base route is)
             if docker compose exec -T backend wget --no-check-certificate --quiet --spider http://localhost:4000; then
               echo "Backend is up!" && exit 0
             fi
@@ -33,12 +37,16 @@ jobs:
       - name: Stop and clean up
         run: docker compose down
 
-  # ... (deploy-preview and deploy-production jobs remain the same for Vercel)
+  # ... (Keep your Vercel deploy-preview and deploy-production jobs here)
 
   deploy-backend:
     needs: check
     runs-on: ubuntu-latest
     if: github.ref == 'refs/heads/main'
+    # THIS SECTION makes the status show up in your GitHub UI
+    environment:
+      name: production
+      url: http://54.234.194.97:4000
     steps:
       - name: Deploy backend to EC2
         uses: appleboy/ssh-action@v1.2.0
@@ -53,7 +61,6 @@ jobs:
             git fetch --all
             git reset --hard origin/main
             
-            # Combine the base file with the production override
-            # This forces Docker to ignore frontend and db services
+            # Merging files ensures frontend/db are ignored on EC2
             docker compose -f docker-compose.yml -f docker-compose.prod.yml down
             docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build backend
