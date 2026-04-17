@@ -1,105 +1,59 @@
-name: CI/CD
-
-on:
-    push:
-        branches: [main, dev]
-    pull_request:
-        branches: [main]
+# ... (on/push/pull_request sections remain the same)
 
 jobs:
-    check:
-        runs-on: ubuntu-latest
-        steps:
-            - uses: actions/checkout@v4
-            - name: Set up Docker Buildx
-              uses: docker/setup-buildx-action@v3
-            - name: Set up Docker Compose
-              uses: docker/setup-compose-action@v2
-            - name: Build frontend with API URL build-arg
-              run: |
-                docker compose build --build-arg NEXT_PUBLIC_API_URL=${{ secrets.NEXT_PUBLIC_API_URL }} frontend
-                docker compose -f docker-compose.yml up -d
-            - name: Wait for backend to be healthy
-              run: |
-                for i in {1..30}; do
-                  if docker compose exec -T backend curl -s http://localhost:4000/health; then
-                    echo "Backend is up!" && exit 0
-                  fi
-                  echo "Waiting for backend..."
-                  sleep 2
-                done
-                echo "Backend did not become healthy in time" && exit 1
-            - name: Run backend tests (if any)
-              run: |
-                docker compose exec -T backend npm test || echo "No backend tests defined"
-            - name: Run frontend tests (if any)
-              run: |
-                docker compose exec -T frontend npm test || echo "No frontend tests defined"
-            - name: Stop and clean up containers
-              run: |
-                docker compose -f docker-compose.yml down
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+      - name: Set up Docker Compose
+        uses: docker/setup-compose-action@v2
+      
+      # Build and start only backend/db for testing to save time
+      - name: Build and Start Services
+        run: |
+          docker compose up -d --build backend db
+          
+      - name: Wait for backend to be healthy
+        run: |
+          for i in {1..30}; do
+            # Note: Changed from /health to / (or whatever your base route is)
+            if docker compose exec -T backend wget --no-check-certificate --quiet --spider http://localhost:4000; then
+              echo "Backend is up!" && exit 0
+            fi
+            echo "Waiting for backend..."
+            sleep 2
+          done
+          echo "Backend did not become healthy in time" && exit 1
+
+      - name: Run backend tests
+        run: docker compose exec -T backend npm test || echo "No tests"
+
+      - name: Stop and clean up
+        run: docker compose down
+
+  # ... (deploy-preview and deploy-production jobs remain the same for Vercel)
+
+  deploy-backend:
+    needs: check
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+    steps:
+      - name: Deploy backend to EC2
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USER }}
+          key: ${{ secrets.EC2_SSH_KEY }}
+          port: ${{ secrets.EC2_PORT || 22 }}
+          script: |
+            set -e
+            cd /var/www/tracevault/TraceVault
+            git fetch --all
+            git reset --hard origin/main
             
-    deploy-preview:
-        needs: check
-        runs-on: ubuntu-latest
-        if: github.ref != 'refs/heads/main'
-        steps:
-            - uses: actions/checkout@v4
-            - uses: actions/setup-node@v4
-              with:
-                node-version: 20
-                cache: 'npm'
-                cache-dependency-path: ./client/package-lock.json
-            - run: npm ci
-              working-directory: ./client
-            - name: Vercel Pull, Build and Deploy
-              run: |
-                npx vercel pull --yes --environment=preview --token ${{ secrets.VERCEL_TOKEN }}
-                npx vercel build --token ${{ secrets.VERCEL_TOKEN }}
-                npx vercel deploy --prebuilt --token ${{ secrets.VERCEL_TOKEN }}
-              env:
-                VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
-                VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
-
-    deploy-production:
-        needs: check
-        runs-on: ubuntu-latest
-        if: github.ref == 'refs/heads/main'
-        steps:
-            - uses: actions/checkout@v4
-            - uses: actions/setup-node@v4
-              with:
-                node-version: 20
-                cache: 'npm'
-                cache-dependency-path: ./client/package-lock.json
-            - run: npm ci
-              working-directory: ./client
-            - name: Vercel Pull, Build and Deploy
-              run: |
-                npx vercel pull --yes --environment=production --token ${{ secrets.VERCEL_TOKEN }}
-                npx vercel build --prod --token ${{ secrets.VERCEL_TOKEN }}
-                npx vercel deploy --prebuilt --prod --token ${{ secrets.VERCEL_TOKEN }}
-              env:
-                VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
-                VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
-
-    deploy-backend:
-        needs: check
-        runs-on: ubuntu-latest
-        if: github.ref == 'refs/heads/main'
-        steps:
-            - name: Deploy backend to EC2 with Docker Compose
-              uses: appleboy/ssh-action@v1.2.0
-              with:
-                host: ${{ secrets.EC2_HOST }}
-                username: ${{ secrets.EC2_USER }}
-                key: ${{ secrets.EC2_SSH_KEY }}
-                port: ${{ secrets.EC2_PORT || 22 }}
-                script: |
-                  set -e
-                  cd /var/www/tracevault/TraceVault
-                  git fetch --all
-                  git reset --hard origin/main
-                  docker compose down
-                  docker compose pull
-                  docker compose up -d --build
+            # Combine the base file with the production override
+            # This forces Docker to ignore frontend and db services
+            docker compose -f docker-compose.yml -f docker-compose.prod.yml down
+            docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build backend

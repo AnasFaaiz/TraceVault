@@ -1,0 +1,26 @@
+version: '3.9'
+
+services:
+  # Tell Docker to ignore the frontend since Vercel handles it
+  frontend:
+    profiles:
+      - ignore
+
+  # Tell Docker to ignore the local DB since Neon handles it
+  db:
+    profiles:
+      - ignore
+
+  backend:
+    # Ensure it uses the production build
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    restart: always
+    # Point to the env file we checked earlier
+    env_file:
+      - ./backend/.env
+    environment:
+      - NODE_ENV=production
+    ports:
+      - "4000:4000"
