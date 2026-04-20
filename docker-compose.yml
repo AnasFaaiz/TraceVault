@@ -16,12 +16,13 @@ services:
     restart: always
     depends_on:
       - db
+    env_file:
+      - ./backend/.env
     environment:
-      DATABASE_URL: postgresql://neondb_owner:npg_3Y2IOmosBXGU@ep-red-breeze-aj5yqv6b-pooler.c-3.us-east-2.aws.neon.tech/neondb?sslmode=require
       NODE_ENV: production
     ports:
       - '4000:4000'
-    command: sh -c "npx prisma migrate deploy && node dist/main.js"
+    command: sh -c "npx prisma migrate deploy && node dist/src/main.js"
     volumes:
       - ./backend/prisma:/app/prisma
 
@@ -30,9 +31,8 @@ services:
     restart: always
     depends_on:
       - backend
-    environment:
-      NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL}
-      NODE_ENV: production
+    env_file:
+      - ./client/.env
     ports:
       - '3000:3000'
     volumes:

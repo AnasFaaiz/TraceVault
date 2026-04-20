@@ -7,9 +7,9 @@ services:
     ports:
       - "4000:4000"
     env_file:
-      # 'required: false' prevents GitHub Actions from crashing 
-      # when it can't find your gitignored .env file
-      - path: ./backend/.env
-        required: false
+      - ./backend/.env
     environment:
       - NODE_ENV=production
+    command: sh -c "npx prisma migrate deploy && node dist/src/main.js"
+    volumes:
+      - ./backend/.env:/app/.env
