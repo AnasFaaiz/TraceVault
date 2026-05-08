@@ -1,10 +1,11 @@
-import { Injectable, BadRequestException } from '@nestjs/common';
+import { Injectable, BadRequestException, UnauthorizedException } from '@nestjs/common';
 import { UsersService } from '../users/users.service';
 import * as bcrypt from 'bcrypt';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import { randomBytes, createHash } from 'crypto';
 import { EmailService } from '../email/email.service';
+import type { Response, Request } from 'express';
 
 @Injectable()
 export class AuthService {
@@ -15,7 +16,7 @@ export class AuthService {
     private emailService: EmailService,
   ) {}
 
-  async register(email: string, password: string, name: string) {
+  async register(email: string, password: string, name: string, res?: Response) {
     const existingUser = await this.usersService.findByEmail(email);
 
     if (existingUser) {
@@ -54,7 +55,19 @@ export class AuthService {
       sub: id,
       email: userEmail,
     });
-
+    // Generate refresh token
+    const refreshToken = randomBytes(64).toString('hex');
+    const refreshTokenHash = createHash('sha256').update(refreshToken).digest('hex');
+    const refreshTokenExpires = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000); // 30 days
+    await this.usersService.setRefreshToken(id, refreshTokenHash, refreshTokenExpires);
+    if (res) {
+      res.cookie('refreshToken', refreshToken, {
+        httpOnly: true,
+        secure: true,
+        sameSite: 'lax',
+        expires: refreshTokenExpires,
+      });
+    }
     return {
       message: 'User registered successfully',
       user: {
@@ -67,7 +80,7 @@ export class AuthService {
     };
   }
 
-  async login(email: string, password: string) {
+  async login(email: string, password: string, res?: Response) {
     const user = await this.usersService.findByEmail(email);
 
     if (!user || typeof user !== 'object' || !('password' in user)) {
@@ -97,7 +110,19 @@ export class AuthService {
       sub: id,
       email: userEmail,
     });
-
+    // Generate refresh token
+    const refreshToken = randomBytes(64).toString('hex');
+    const refreshTokenHash = createHash('sha256').update(refreshToken).digest('hex');
+    const refreshTokenExpires = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000); // 30 days
+    await this.usersService.setRefreshToken(id, refreshTokenHash, refreshTokenExpires);
+    if (res) {
+      res.cookie('refreshToken', refreshToken, {
+        httpOnly: true,
+        secure: true,
+        sameSite: 'lax',
+        expires: refreshTokenExpires,
+      });
+    }
     return {
       message: 'Login successfully',
       user: {
@@ -108,6 +133,54 @@ export class AuthService {
       },
       accessToken: token,
     };
+
+  }
+
+  async refreshToken(req: Request, res: Response) {
+    const refreshToken = req.cookies['refreshToken'];
+    if (!refreshToken) throw new UnauthorizedException('No refresh token');
+    const refreshTokenHash = createHash('sha256').update(refreshToken).digest('hex');
+    const user = await this.usersService.findByRefreshToken(refreshTokenHash);
+    if (!user || !user.refreshTokenExpires || user.refreshTokenExpires.getTime() < Date.now()) {
+      throw new UnauthorizedException('Invalid or expired refresh token');
+    }
+    // Rotate refresh token
+    const newRefreshToken = randomBytes(64).toString('hex');
+    const newRefreshTokenHash = createHash('sha256').update(newRefreshToken).digest('hex');
+    const newRefreshTokenExpires = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
+    await this.usersService.setRefreshToken(user.id, newRefreshTokenHash, newRefreshTokenExpires);
+    res.cookie('refreshToken', newRefreshToken, {
+      httpOnly: true,
+      secure: true,
+      sameSite: 'lax',
+      expires: newRefreshTokenExpires,
+    });
+    const accessToken = this.jwtService.sign({
+      sub: user.id,
+      email: user.email,
+    });
+    return {
+      accessToken,
+      user: {
+        id: user.id,
+        email: user.email,
+        name: user.name,
+        username: user.username,
+      },
+    };
+  }
+
+  async logout(req: Request, res: Response) {
+    const refreshToken = req.cookies['refreshToken'];
+    if (refreshToken) {
+      const refreshTokenHash = createHash('sha256').update(refreshToken).digest('hex');
+      const user = await this.usersService.findByRefreshToken(refreshTokenHash);
+      if (user) {
+        await this.usersService.clearRefreshToken(user.id);
+      }
+    }
+    res.clearCookie('refreshToken', { httpOnly: true, secure: true, sameSite: 'lax' });
+    return { message: 'Logged out successfully' };
   }
 
   async forgotPassword(email: string) {

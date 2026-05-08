@@ -65,6 +65,7 @@ export class UsersService {
       },
     });
   }
+
   async findById(id: string) {
     return this.prisma.user.findUnique({
       where: { id },
@@ -75,6 +76,33 @@ export class UsersService {
     return this.prisma.user.update({
       where: { id: userId },
       data: { username },
+    });
+  }
+
+  async setRefreshToken(userId: string, tokenHash: string, expiresAt: Date): Promise<User> {
+    return this.prisma.user.update({
+      where: { id: userId },
+      data: {
+        refreshTokenHash: tokenHash,
+        refreshTokenExpires: expiresAt,
+      },
+    });
+  }
+
+  async clearRefreshToken(userId: string): Promise<User> {
+    return this.prisma.user.update({
+      where: { id: userId },
+      data: {
+        refreshTokenHash: null,
+        refreshTokenExpires: null,
+      },
+    });
+  }
+  async findByRefreshToken(tokenHash: string): Promise<User | null> {
+    return this.prisma.user.findFirst({
+      where: {
+        refreshTokenHash: tokenHash,
+      },
     });
   }
 }

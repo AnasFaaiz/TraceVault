@@ -213,7 +213,7 @@ export default function AppLayout({ children, title, subtitle, projectId: preSel
                         )}
                     </Link>
                     <button
-                        onClick={logout}
+                        onClick={async () => { await logout(); router.push('/login'); }}
                         title="Sign out"
                         style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: isSidebarOpen ? 'flex-start' : 'center', gap: 8, padding: '8px 10px', border: 'none', background: 'transparent', cursor: 'pointer', fontFamily: 'var(--mono)', fontSize: 11, color: 'var(--muted)', borderRadius: 6, transition: 'color 0.15s', letterSpacing: '0.04em' }}
                     >

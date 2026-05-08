@@ -4,7 +4,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import AuthLayout from '@/components/auth/AuthLayout';
-import { Eye, EyeOff, Loader2 } from 'lucide-react';
+import { Eye, EyeOff } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import styles from '@/app/auth.module.css';
 import api from '@/lib/api';
@@ -208,7 +208,16 @@ export default function RegisterPage() {
           type="submit"
           className={styles.submitBtn}
         >
-          {isLoading ? <Loader2 className="animate-spin" size={18} /> : 'Create Your Vault'}
+          {isLoading ? (
+            <div className={styles.loaderContainer}>
+              <div className={styles.loaderRing}></div>
+              <div className={styles.loaderRing}></div>
+              <div className={styles.loaderRing}></div>
+              <div className={styles.loaderRing}></div>
+            </div>
+          ) : (
+            'Create Your Vault'
+          )}
         </button>
       </form>
     </AuthLayout>

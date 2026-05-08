@@ -11,6 +11,7 @@ import {
   Post,
   UploadedFile,
   UseInterceptors,
+  Res,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { diskStorage } from 'multer';
@@ -45,6 +46,62 @@ export class ProfileController {
       page: parseInt(page),
       limit: parseInt(limit),
     });
+  }
+
+  @UseGuards(AuthGuard('jwt'))
+  @Get('me/history')
+  async getHistory(
+    @Req() req: any,
+    @Query('page') page: string = '1',
+    @Query('limit') limit: string = '20',
+    @Query('projectId') projectId?: string,
+    @Query('category') category?: string,
+    @Query('startDate') startDate?: string,
+    @Query('endDate') endDate?: string,
+  ) {
+    return this.profileService.getHistoryEntries({
+      userId: req.user.userId,
+      page: parseInt(page),
+      limit: parseInt(limit),
+      projectId,
+      category,
+      startDate,
+      endDate,
+    });
+  }
+
+  @UseGuards(AuthGuard('jwt'))
+  @Get('me/history/export')
+  async exportHistory(
+    @Req() req: any,
+    @Res() res: any,
+    @Query('format') format: 'json' | 'markdown' = 'json',
+    @Query('projectId') projectId?: string,
+    @Query('category') category?: string,
+    @Query('startDate') startDate?: string,
+    @Query('endDate') endDate?: string,
+  ) {
+    const history = await this.profileService.getAllHistoryEntries({
+      userId: req.user.userId,
+      projectId,
+      category,
+      startDate,
+      endDate,
+    });
+
+    const fileBaseName = `tracevault-history-${new Date()
+      .toISOString()
+      .slice(0, 10)}`;
+
+    if (format === 'markdown') {
+      res.setHeader('Content-Type', 'text/markdown; charset=utf-8');
+      res.setHeader('Content-Disposition', `attachment; filename="${fileBaseName}.md"`);
+      return res.send(history.markdown || '# TraceVault History\n\nNo entries found.');
+    }
+
+    res.setHeader('Content-Type', 'application/json; charset=utf-8');
+    res.setHeader('Content-Disposition', `attachment; filename="${fileBaseName}.json"`);
+    return res.json(history.entries);
   }
 
   @Patch('me')

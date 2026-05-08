@@ -331,8 +331,8 @@ export class ReflectionsService {
       throw new NotFoundException('Reflection not found');
     }
 
-    // Check authorization
-    if (reflection.project.userId !== userId) {
+    // If userId is provided, check ownership (private view)
+    if (userId && reflection.project.userId !== userId) {
       throw new ForbiddenException('You do not have access to this reflection');
     }
 

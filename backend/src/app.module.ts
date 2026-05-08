@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { ThrottlerModule } from '@nestjs/throttler';
 import { UsersModule } from './users/users.module';
 import { AuthModule } from './auth/auth.module';
 import { PrismaModule } from '../prisma/prisma.module';
@@ -9,6 +10,14 @@ import { CollectionsModule } from './collections/collections.module';
 
 @Module({
   imports: [
+    ThrottlerModule.forRoot({
+      throttlers: [
+        {
+          ttl: 60,
+          limit: 10, // 10 requests per minute per IP (adjust as needed)
+        },
+      ],
+    }),
     UsersModule,
     AuthModule,
     PrismaModule,

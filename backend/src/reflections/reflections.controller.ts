@@ -147,13 +147,14 @@ export class ReflectionsController {
   /**
    * Get single reflection by ID
    */
-  @UseGuards(JwtAuthGuard)
   @Get(':id')
   getReflection(
     @Param('id') id: string,
-    @Req() req: { user: { userId: string } },
+    @Req() req: any,
   ) {
-    return this.reflectionsService.getReflectionById(req.user.userId, id);
+    // If user is logged in, pass userId, else undefined (public view)
+    const userId = req.user?.userId;
+    return this.reflectionsService.getReflectionById(userId, id);
   }
 
   /**

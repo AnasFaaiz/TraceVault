@@ -27,8 +27,18 @@ export const useAuthStore = create<AuthState>()(
       setAuth: (user, token) => {
         set({ user, token });
       },
-      logout: () => {
-        set({ user: null, token: null });
+      logout: async () => {
+        try {
+          const base = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000/api';
+          await fetch(`${base}/auth/logout`, {
+            method: 'POST',
+            credentials: 'include',
+          });
+        } catch (e) {
+          // ignore
+        } finally {
+          set({ user: null, token: null });
+        }
       },
       setHasHydrated: (state) => {
         set({ _hasHydrated: state });

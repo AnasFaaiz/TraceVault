@@ -1,55 +1,81 @@
-# TraceVault Progress
+# TraceVault Feature Status Audit
 
-Last updated: 2026-04-03
+Last updated: 2026-04-24
 
-This document tracks what has already been completed and how later work should be recorded.
-It is a project-wide progress reference, separate from the technical debugging log and feature roadmap.
+This document provides a comprehensive status of features across the TraceVault codebase, summarizing completed, partially done, and pending features. For technical details and the full feature roadmap, see [Feature roadmap](debugging/FEATURES.md) and [Debugging log](debugging/backend-errors.md).
 
-## Completed So Far
+## ✅ Completed Features
 
-### Backend foundation
+### Backend Foundation & Authentication
+- User Authentication: User registration, login, and JWT-based authentication
+- Security: Password hashing (bcrypt), protected routes, token expiration management, and environment-based secrets configuration
 
-- The backend authentication system is operational.
-- User registration is complete.
-- Password hashing is in place.
-- Login authentication is complete.
-- JWT token generation is implemented.
-- Protected routes are supported.
-- Environment-based secrets are configured.
+### Project Management
+- Core CRUD: Create, list, update, and delete projects
+- Project Enhancements: Project ownership, template breakdown bars, stats row (entries, last sealed, pivotal), sort/filter bar, and derived tags from entries
 
-### Current milestone
+### Engineering Entry System
+- Entry Creation: Ability to create entries using 6 structured templates
+- Entry Attributes: Structured JSON storage per template, template type & impact selection, tags, and public/private visibility toggles
+- Feed Integration: Snippet generation for feed cards
 
-- The active backend milestone is complete for authentication.
-- The next milestone is projects, entries, and search/retrieval.
+### Community Feed & Interactivity
+- Feed Views: "For You" and "From Your Stack" tabs
+- Card Features: Full feed cards with reactions & counts, "Vault it" capability, and a "Share" (copy link) button
+- Trending: Single-column layout with a trending sidebar showing Insight Strength and Momentum
+- Search: Basic search bar UI
 
-- The knowledge model is centered on users, projects, and engineering entries.
-- The long-term goal is to support reusable debugging knowledge and later RAG-style retrieval.
+### Collections & Vault
+- Collections: Create collections via modal, list collections on the projects page, display compact rows, private/public visibility badges, and entry preview titles
+- Vault: /vault page displaying vaulted entries, search functionality within the vault, and "Vaulted" state indication on feed cards
 
-## Workflow For Later Work
+### User System & Profiles
+- Dashboard: Basic stats cards (projects, reflections), quick action cards, and recent reflections list
+- Public Profile: /u/username route, identity header, stack tags, Share/Edit buttons, volume/impact/streak stat cards, activity heatmap, and basic profile tabs
+- Avatars: Initials fallback for avatars
 
-1. When a milestone is finished, add a short summary of the result here.
-2. Keep technical error details and root-cause notes in [docs/debugging/backend-errors.md](debugging/backend-errors.md).
-3. Keep planned feature scope and open tasks in [docs/debugging/FEATURES.md](debugging/FEATURES.md).
-4. Record work as: what was finished, what changed, and what still needs attention.
-5. If a task is blocked, note the blocker here and move the investigation details into the debugging log.
-6. Update this file whenever the project starts a new phase or completes a major milestone.
+---
 
-## Current Focus
+## 🚧 Partially Done Features
 
-- Project management
-- Engineering entries
-- Search and retrieval
-- Markdown import
-- Client-side reflection and workspace features
+### User System & Dashboard
+- Dashboard Polish: Streak visualization in headers/cards needs implementation. The recent reflections list needs impact & top reaction data
+- Streak Logic: Streak calculation needs to be fixed
 
-## How To Use This File
+### Entry System & Collections
+- Entry Management: Edit and delete functions for entries are not fully implemented. Project-specific entry listings and markdown-to-structured migration are missing
+- Collection Management: Detailed collection view (/collections/:id), editing/deleting collections, and "Add to collection" capabilities from entry cards are pending
 
-- Use it for a quick status check when returning to the project later.
-- Use it to understand the last completed milestone before starting the next one.
-- Use it to keep the work history separate from implementation details.
-- Use it as the first stop before opening the debugging log or roadmap.
+### Tagging & Filtering
+- Tag Implementation: Tags exist on entities but clicking them doesn't filter the feed yet. Autocomplete when adding tags and URL-based tag filtering are pending
+- Feed Enhancements: The filter panel (template type, impact, confidence) is UI only. "Felt this" reaction is missing, and infinite scrolling / skeleton loading states are needed
 
-## Related Docs
+### Profile & Vault
+- Profile Rendering: Entry list is not rendering below tabs. Missing private entry placeholders, projects showcase, and bio field display
+- Vault Management: Sorting, filtering, empty states, and unvaulting are incomplete. Vault count in the sidebar is missing
 
-- [Feature roadmap](debugging/FEATURES.md)
-- [Debugging log](debugging/backend-errors.md)
+---
+
+## ⏳ Pending or Planned Features
+
+### Detailed Views
+- Project Detail Page: (/projects/:id) with filtered tabs and entry search
+- Entry Detail Page: (/reflections/:id) rendering the full structured template conversationally
+
+### New Modules
+- History Page: A personal chronological timeline log of all entries with date/project filters and export features
+- Stack Memory: /stack page summarizing technology usage across entries and projects, including custom resources and official documentation links
+
+### Advanced Functionality
+- Global Search: Cmd+K command palette for global search across entries, projects, and collections. Full-text search capabilities
+- Profile Polish: Clean username setup flow, profile completeness indicator, profile visibility toggle, and avatar uploads
+
+### Mobile & Quality of Life
+- Mobile Responsiveness: Mobile-friendly feed, sidebar navigation, profile, vault, and reaction picker
+- Auth Polish: Logout functionality verification, refresh token handling, and rate limiting
+
+### Future / AI Integration (Post-Revenue)
+- Paste-to-Parse: AI auto-fills templates from messy pasted text
+- Stack Memory RAG: Vector search retrieval across personal entries and documentation
+- AI Coach: Suggestions for entry improvement (e.g., prompting to add a missing root cause)
+- IDE Extensions: VS Code Extension and Git Integration to capture automated debugging insights

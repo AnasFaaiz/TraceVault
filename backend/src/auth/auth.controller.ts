@@ -1,6 +1,7 @@
-import { Controller, Post, Body, Get, UseGuards, Req } from '@nestjs/common';
+import { Controller, Post, Body, Get, UseGuards, Req, Res } from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { AuthGuard } from '@nestjs/passport';
+import type { Response, Request } from 'express';
 
 @Controller('auth')
 export class AuthController {
@@ -15,13 +16,27 @@ export class AuthController {
   @Post('register')
   async register(
     @Body() body: { email: string; password: string; name: string },
+    @Res() res: Response
   ) {
-    return this.authService.register(body.email, body.password, body.name);
+    const result = await this.authService.register(body.email, body.password, body.name, res);
+    res.json(result);
   }
 
   @Post('login')
-  async login(@Body() body: { email: string; password: string }) {
-    return this.authService.login(body.email, body.password);
+  async login(@Body() body: { email: string; password: string }, @Res() res: Response) {
+    const result = await this.authService.login(body.email, body.password, res);
+    res.json(result);
+  }
+  @Post('refresh')
+  async refresh(@Req() req: Request, @Res() res: Response) {
+    const result = await this.authService.refreshToken(req, res);
+    res.json(result);
+  }
+
+  @Post('logout')
+  async logout(@Req() req: Request, @Res() res: Response) {
+    const result = await this.authService.logout(req, res);
+    res.json(result);
   }
 
   @Post('forgot-password')

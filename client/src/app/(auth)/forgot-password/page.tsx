@@ -49,7 +49,16 @@ export default function ForgotPasswordPage() {
         {error && <p className={styles.errorText}>{error}</p>}
 
         <button type="submit" className={styles.submitBtn} disabled={loading}>
-          {loading ? 'Sending...' : 'Send Reset Link'}
+          {loading ? (
+            <div className={styles.loaderContainer}>
+              <div className={styles.loaderRing}></div>
+              <div className={styles.loaderRing}></div>
+              <div className={styles.loaderRing}></div>
+              <div className={styles.loaderRing}></div>
+            </div>
+          ) : (
+            'Send Reset Link'
+          )}
         </button>
 
         <div style={{ marginTop: '12px', textAlign: 'center' }}>

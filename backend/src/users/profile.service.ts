@@ -7,12 +7,97 @@ import {
 import { PrismaService } from '../../prisma/prisma.service';
 import { ReflectionsService } from '../reflections/reflections.service';
 
+type HistoryFilters = {
+  userId: string;
+  projectId?: string;
+  category?: string;
+  startDate?: string;
+  endDate?: string;
+};
+
+type HistoryPagination = HistoryFilters & {
+  page: number;
+  limit: number;
+};
+
 @Injectable()
 export class ProfileService {
   constructor(
     private prisma: PrismaService,
     private reflectionsService: ReflectionsService,
   ) {}
+
+  private buildHistoryWhere(filters: HistoryFilters) {
+    const where: any = { userId: filters.userId };
+
+    if (filters.projectId) {
+      where.projectId = filters.projectId;
+    }
+
+    if (filters.category) {
+      where.category = filters.category;
+    }
+
+    if (filters.startDate || filters.endDate) {
+      where.createdAt = {};
+
+      if (filters.startDate) {
+        where.createdAt.gte = new Date(filters.startDate);
+      }
+
+      if (filters.endDate) {
+        where.createdAt.lte = new Date(filters.endDate);
+      }
+    }
+
+    return where;
+  }
+
+  private mapHistoryEntry(reflection: any) {
+    return {
+      id: reflection.id,
+      title: reflection.title,
+      template_type: reflection.template_type,
+      category: reflection.category,
+      impact: reflection.impact,
+      tags: reflection.tags,
+      project: reflection.project,
+      totalReactions: reflection._count.reactions,
+      createdAt: reflection.createdAt.toISOString(),
+      relativeDate: this.reflectionsService['getRelativeDate'](
+        reflection.createdAt,
+      ),
+    };
+  }
+
+  private formatHistoryMarkdown(entries: Array<ReturnType<ProfileService['mapHistoryEntry']>>) {
+    const groups = new Map<string, typeof entries>();
+
+    entries.forEach((entry) => {
+      const label = new Date(entry.createdAt)
+        .toLocaleDateString('en-US', { month: 'short', year: 'numeric' })
+        .toUpperCase();
+
+      const current = groups.get(label) || [];
+      current.push(entry);
+      groups.set(label, current);
+    });
+
+    return Array.from(groups.entries())
+      .map(([label, groupEntries]) => {
+        const rows = groupEntries
+          .map(
+            (entry) =>
+              `- ${String(entry.template_type || entry.category || 'unknown')
+                .replace(/_/g, ' ')
+                .toUpperCase()} · ${entry.title} · ${entry.impact || 'minor'} · ${entry.totalReactions} reactions · ${new Date(entry.createdAt).toLocaleDateString()}`,
+          )
+          .join('\n');
+
+        return `## ${label}\n${rows}`;
+      })
+      .join('\n\n');
+  }
 
   async getProfileData(username: string, viewerId?: string) {
     const user = await this.prisma.user.findUnique({
@@ -416,6 +501,72 @@ export class ProfileService {
       entries: items,
       totalEntries: reflections.length, // This is just the page count, real total would need a count query
       hasMore,
+    };
+  }
+
+  async getHistoryEntries(options: HistoryPagination) {
+    const skip = (options.page - 1) * options.limit;
+    const where = this.buildHistoryWhere(options);
+
+    const totalEntries = await this.prisma.reflection.count({
+      where,
+    });
+
+    const reflections = await this.prisma.reflection.findMany({
+      where,
+      include: {
+        project: {
+          select: {
+            id: true,
+            name: true,
+          },
+        },
+        _count: {
+          select: { reactions: true },
+        },
+      },
+      orderBy: { createdAt: 'desc' },
+      skip,
+      take: options.limit + 1,
+    });
+
+    const hasMore = reflections.length > options.limit;
+    const items = reflections.slice(0, options.limit).map((reflection: any) =>
+      this.mapHistoryEntry(reflection),
+    );
+
+    return {
+      entries: items,
+      totalEntries,
+      hasMore: skip + options.limit < totalEntries && hasMore,
+    };
+  }
+
+  async getAllHistoryEntries(filters: HistoryFilters) {
+    const reflections = await this.prisma.reflection.findMany({
+      where: this.buildHistoryWhere(filters),
+      include: {
+        project: {
+          select: {
+            id: true,
+            name: true,
+          },
+        },
+        _count: {
+          select: { reactions: true },
+        },
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    const entries = reflections.map((reflection: any) =>
+      this.mapHistoryEntry(reflection),
+    );
+
+    return {
+      entries,
+      markdown: this.formatHistoryMarkdown(entries),
+      totalEntries: entries.length,
     };
   }
 

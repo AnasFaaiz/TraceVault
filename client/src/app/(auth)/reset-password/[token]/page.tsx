@@ -80,7 +80,16 @@ export default function ResetPasswordPage() {
         {error && <p className={styles.errorText}>{error}</p>}
 
         <button type="submit" className={styles.submitBtn} disabled={loading}>
-          {loading ? 'Resetting...' : 'Reset Password'}
+          {loading ? (
+            <div className={styles.loaderContainer}>
+              <div className={styles.loaderRing}></div>
+              <div className={styles.loaderRing}></div>
+              <div className={styles.loaderRing}></div>
+              <div className={styles.loaderRing}></div>
+            </div>
+          ) : (
+            'Reset Password'
+          )}
         </button>
 
         <div style={{ marginTop: '12px', textAlign: 'center' }}>
