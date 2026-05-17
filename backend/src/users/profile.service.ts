@@ -70,7 +70,9 @@ export class ProfileService {
     };
   }
 
-  private formatHistoryMarkdown(entries: Array<ReturnType<ProfileService['mapHistoryEntry']>>) {
+  private formatHistoryMarkdown(
+    entries: Array<ReturnType<ProfileService['mapHistoryEntry']>>,
+  ) {
     const groups = new Map<string, typeof entries>();
 
     entries.forEach((entry) => {
@@ -531,9 +533,9 @@ export class ProfileService {
     });
 
     const hasMore = reflections.length > options.limit;
-    const items = reflections.slice(0, options.limit).map((reflection: any) =>
-      this.mapHistoryEntry(reflection),
-    );
+    const items = reflections
+      .slice(0, options.limit)
+      .map((reflection: any) => this.mapHistoryEntry(reflection));
 
     return {
       entries: items,

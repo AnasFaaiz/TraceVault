@@ -79,7 +79,11 @@ export class UsersService {
     });
   }
 
-  async setRefreshToken(userId: string, tokenHash: string, expiresAt: Date): Promise<User> {
+  async setRefreshToken(
+    userId: string,
+    tokenHash: string,
+    expiresAt: Date,
+  ): Promise<User> {
     return this.prisma.user.update({
       where: { id: userId },
       data: {

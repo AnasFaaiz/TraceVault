@@ -1,4 +1,12 @@
-import { Controller, Post, Body, Get, UseGuards, Req, Res } from '@nestjs/common';
+import {
+  Controller,
+  Post,
+  Body,
+  Get,
+  UseGuards,
+  Req,
+  Res,
+} from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { AuthGuard } from '@nestjs/passport';
 import type { Response, Request } from 'express';
@@ -16,14 +24,22 @@ export class AuthController {
   @Post('register')
   async register(
     @Body() body: { email: string; password: string; name: string },
-    @Res() res: Response
+    @Res() res: Response,
   ) {
-    const result = await this.authService.register(body.email, body.password, body.name, res);
+    const result = await this.authService.register(
+      body.email,
+      body.password,
+      body.name,
+      res,
+    );
     res.json(result);
   }
 
   @Post('login')
-  async login(@Body() body: { email: string; password: string }, @Res() res: Response) {
+  async login(
+    @Body() body: { email: string; password: string },
+    @Res() res: Response,
+  ) {
     const result = await this.authService.login(body.email, body.password, res);
     res.json(result);
   }

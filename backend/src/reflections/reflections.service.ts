@@ -737,15 +737,15 @@ export class ReflectionsService {
       const userTags = await this.getUserTagHistory(userId);
 
       if (userTags.length > 0 && view === 'for_you') {
-        if (hasExplicitTagFilter) {
-          where.tags = { hasSome: userTags };
-        } else {
+        if (!hasExplicitTagFilter) {
           where.OR = [
             { tags: { hasSome: userTags }, visibility: 'public' },
             { userId }, // Own entries are always relevant
           ];
         }
+        // If hasExplicitTagFilter is true, we keep the tags filter from baseWhere
       } else if (view === 'from_your_stack') {
+
         // Specialized logic handled later
       } else {
         // Fallback for new users: Show global feed (baseWhere already limits to public/own)
@@ -848,13 +848,9 @@ export class ReflectionsService {
     // Build response
     const response = await this.buildFeedResponse(filteredReflections, userId);
 
-    // Count total for pagination
-    const total = await this.prisma.reflection.count({
-      where: {
-        ...where,
-        ...(view === 'from_your_stack' ? {} : {}), // Simplified total count
-      },
-    });
+    // Count total for pagination - taking into account that filteredReflections might be smaller than the DB result
+    const dbTotal = await this.prisma.reflection.count({ where });
+    const total = view === 'from_your_stack' ? filteredReflections.length : dbTotal;
 
     return {
       entries: response,
@@ -865,6 +861,7 @@ export class ReflectionsService {
         hasMore: skip + limit < total,
       },
     };
+
   }
 
   /**

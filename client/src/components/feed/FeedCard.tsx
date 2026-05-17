@@ -102,14 +102,22 @@ const FeedCard = ({ entry }: { entry: FeedCardEntry }) => {
               <span className={styles.initials}>{getInitials(entry.author.username)}</span>
             )}
           </div>
-          <span
-            className={styles.username}
-            onClick={(e) => { e.stopPropagation(); router.push(`/profile/${entry.author.id}`); }}
-          >
+          <span className={styles.username} onClick={(e) => { e.stopPropagation(); router.push(`/profile/${entry.author.id}`); }}>
             {entry.author.username}
           </span>
           <span className={styles.dot} />
           <span className={styles.date}>{entry.relativeDate}</span>
+          <span className={styles.dot} />
+          <span 
+            className={styles.projectName}
+            onClick={(e) => { 
+              e.stopPropagation(); 
+              router.push(`/projects/${entry.project.id}`); 
+            }}
+            title={`Project: ${entry.project.name}`}
+          >
+            {entry.project.name}
+          </span>
         </div>
 
         <span

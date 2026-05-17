@@ -62,12 +62,18 @@ export default function AppLayout({ children, title, subtitle, projectId: preSel
     const isSidebarOpen = isSidebarHovered;
     const isVaultPage = pathname.startsWith('/vault');
     const isFeedPage = pathname.startsWith('/feed');
-    const searchTargetPath = isVaultPage ? '/vault' : '/feed';
+    const isProjectsPage = pathname.startsWith('/projects');
+
+    const showSearch = isFeedPage || isProjectsPage; // Show on Feed and Projects
+
+    const searchTargetPath = isVaultPage ? '/vault' : isProjectsPage ? '/projects' : '/feed';
     const searchPlaceholder = isVaultPage
         ? 'Search your Vault... (Title, Content)'
-        : isFeedPage
-            ? 'Search the Feed... (Title, Tags, Author)'
-            : 'Search reflections...';
+        : isProjectsPage
+            ? 'Search your Projects... (Name, Stack)'
+            : isFeedPage
+                ? 'Search the Feed... (Title, Tags, Author)'
+                : 'Search reflections...';
     useEffect(() => {
         if (!_hasHydrated) return;
         if (!token) { router.push('/login'); }
@@ -233,14 +239,20 @@ export default function AppLayout({ children, title, subtitle, projectId: preSel
                             {headerLeftContent}
                         </div>
                     )}
-                    <div style={{ width: '36%', minWidth: 420, maxWidth: 560, flexShrink: 0 }}>
-                        <GlobalSearchBar
-                            value={searchQuery}
-                            onChange={setSearchQuery}
-                            onSubmit={handleSearch}
-                            placeholder={searchPlaceholder}
-                            rightActions={headerActions}
-                        />
+                    <div style={{ width: showSearch ? '36%' : 'auto', minWidth: showSearch ? 420 : 0, maxWidth: 560, flexShrink: 0 }}>
+                        {showSearch ? (
+                            <GlobalSearchBar
+                                value={searchQuery}
+                                onChange={setSearchQuery}
+                                onSubmit={handleSearch}
+                                placeholder={searchPlaceholder}
+                                rightActions={headerActions}
+                            />
+                        ) : (
+                            <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
+                                {headerActions}
+                            </div>
+                        )}
                     </div>
                 </div>
 

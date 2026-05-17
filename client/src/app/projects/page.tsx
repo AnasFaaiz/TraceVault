@@ -390,7 +390,7 @@ function ProjectsPageContent() {
                 
                 {/* SECTION 1: PROJECTS */}
                 <section style={{ marginBottom: '80px' }}>
-                    <div style={{ height: '1px', background: 'var(--border)', width: '100%', marginBottom: '32px' }} />
+
 
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '32px' }}>
                       <h2 style={{ fontSize: '11px', fontFamily: 'var(--mono)', color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.1em', fontWeight: 700 }}>
@@ -496,7 +496,7 @@ function ProjectsPageContent() {
                     </div>
                 </section>
 
-                <div style={{ height: '1px', background: 'var(--border)', width: '100%', marginBottom: '64px' }} />
+
 
                 {/* SECTION 3: COLLECTIONS */}
                 <section>

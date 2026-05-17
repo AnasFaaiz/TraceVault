@@ -83,6 +83,24 @@
   white-space: nowrap;
 }
 
+.projectName {
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: var(--amber);
+  cursor: pointer;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 120px;
+  transition: color 0.15s ease;
+}
+
+.projectName:hover {
+  color: var(--amber-light);
+  text-decoration: underline;
+}
+
+
 .impactPill {
   font-size: 0.6875rem;
   font-weight: 500;

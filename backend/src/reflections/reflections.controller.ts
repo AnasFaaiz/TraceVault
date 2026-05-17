@@ -148,10 +148,7 @@ export class ReflectionsController {
    * Get single reflection by ID
    */
   @Get(':id')
-  getReflection(
-    @Param('id') id: string,
-    @Req() req: any,
-  ) {
+  getReflection(@Param('id') id: string, @Req() req: any) {
     // If user is logged in, pass userId, else undefined (public view)
     const userId = req.user?.userId;
     return this.reflectionsService.getReflectionById(userId, id);

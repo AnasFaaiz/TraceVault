@@ -95,12 +95,20 @@ export class ProfileController {
 
     if (format === 'markdown') {
       res.setHeader('Content-Type', 'text/markdown; charset=utf-8');
-      res.setHeader('Content-Disposition', `attachment; filename="${fileBaseName}.md"`);
-      return res.send(history.markdown || '# TraceVault History\n\nNo entries found.');
+      res.setHeader(
+        'Content-Disposition',
+        `attachment; filename="${fileBaseName}.md"`,
+      );
+      return res.send(
+        history.markdown || '# TraceVault History\n\nNo entries found.',
+      );
     }
 
     res.setHeader('Content-Type', 'application/json; charset=utf-8');
-    res.setHeader('Content-Disposition', `attachment; filename="${fileBaseName}.json"`);
+    res.setHeader(
+      'Content-Disposition',
+      `attachment; filename="${fileBaseName}.json"`,
+    );
     return res.json(history.entries);
   }
 

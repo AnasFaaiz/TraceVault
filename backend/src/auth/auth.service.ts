@@ -1,4 +1,8 @@
-import { Injectable, BadRequestException, UnauthorizedException } from '@nestjs/common';
+import {
+  Injectable,
+  BadRequestException,
+  UnauthorizedException,
+} from '@nestjs/common';
 import { UsersService } from '../users/users.service';
 import * as bcrypt from 'bcrypt';
 import { JwtService } from '@nestjs/jwt';
@@ -16,7 +20,12 @@ export class AuthService {
     private emailService: EmailService,
   ) {}
 
-  async register(email: string, password: string, name: string, res?: Response) {
+  async register(
+    email: string,
+    password: string,
+    name: string,
+    res?: Response,
+  ) {
     const existingUser = await this.usersService.findByEmail(email);
 
     if (existingUser) {
@@ -57,9 +66,15 @@ export class AuthService {
     });
     // Generate refresh token
     const refreshToken = randomBytes(64).toString('hex');
-    const refreshTokenHash = createHash('sha256').update(refreshToken).digest('hex');
+    const refreshTokenHash = createHash('sha256')
+      .update(refreshToken)
+      .digest('hex');
     const refreshTokenExpires = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000); // 30 days
-    await this.usersService.setRefreshToken(id, refreshTokenHash, refreshTokenExpires);
+    await this.usersService.setRefreshToken(
+      id,
+      refreshTokenHash,
+      refreshTokenExpires,
+    );
     if (res) {
       res.cookie('refreshToken', refreshToken, {
         httpOnly: true,
@@ -112,9 +127,15 @@ export class AuthService {
     });
     // Generate refresh token
     const refreshToken = randomBytes(64).toString('hex');
-    const refreshTokenHash = createHash('sha256').update(refreshToken).digest('hex');
+    const refreshTokenHash = createHash('sha256')
+      .update(refreshToken)
+      .digest('hex');
     const refreshTokenExpires = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000); // 30 days
-    await this.usersService.setRefreshToken(id, refreshTokenHash, refreshTokenExpires);
+    await this.usersService.setRefreshToken(
+      id,
+      refreshTokenHash,
+      refreshTokenExpires,
+    );
     if (res) {
       res.cookie('refreshToken', refreshToken, {
         httpOnly: true,
@@ -133,22 +154,35 @@ export class AuthService {
       },
       accessToken: token,
     };
-
   }
 
   async refreshToken(req: Request, res: Response) {
     const refreshToken = req.cookies['refreshToken'];
     if (!refreshToken) throw new UnauthorizedException('No refresh token');
-    const refreshTokenHash = createHash('sha256').update(refreshToken).digest('hex');
+    const refreshTokenHash = createHash('sha256')
+      .update(refreshToken)
+      .digest('hex');
     const user = await this.usersService.findByRefreshToken(refreshTokenHash);
-    if (!user || !user.refreshTokenExpires || user.refreshTokenExpires.getTime() < Date.now()) {
+    if (
+      !user ||
+      !user.refreshTokenExpires ||
+      user.refreshTokenExpires.getTime() < Date.now()
+    ) {
       throw new UnauthorizedException('Invalid or expired refresh token');
     }
     // Rotate refresh token
     const newRefreshToken = randomBytes(64).toString('hex');
-    const newRefreshTokenHash = createHash('sha256').update(newRefreshToken).digest('hex');
-    const newRefreshTokenExpires = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
-    await this.usersService.setRefreshToken(user.id, newRefreshTokenHash, newRefreshTokenExpires);
+    const newRefreshTokenHash = createHash('sha256')
+      .update(newRefreshToken)
+      .digest('hex');
+    const newRefreshTokenExpires = new Date(
+      Date.now() + 30 * 24 * 60 * 60 * 1000,
+    );
+    await this.usersService.setRefreshToken(
+      user.id,
+      newRefreshTokenHash,
+      newRefreshTokenExpires,
+    );
     res.cookie('refreshToken', newRefreshToken, {
       httpOnly: true,
       secure: true,
@@ -173,13 +207,19 @@ export class AuthService {
   async logout(req: Request, res: Response) {
     const refreshToken = req.cookies['refreshToken'];
     if (refreshToken) {
-      const refreshTokenHash = createHash('sha256').update(refreshToken).digest('hex');
+      const refreshTokenHash = createHash('sha256')
+        .update(refreshToken)
+        .digest('hex');
       const user = await this.usersService.findByRefreshToken(refreshTokenHash);
       if (user) {
         await this.usersService.clearRefreshToken(user.id);
       }
     }
-    res.clearCookie('refreshToken', { httpOnly: true, secure: true, sameSite: 'lax' });
+    res.clearCookie('refreshToken', {
+      httpOnly: true,
+      secure: true,
+      sameSite: 'lax',
+    });
     return { message: 'Logged out successfully' };
   }
 

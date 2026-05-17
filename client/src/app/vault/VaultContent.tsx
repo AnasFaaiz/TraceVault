@@ -64,6 +64,11 @@ export default function VaultContent() {
   const [hasMore, setHasMore] = useState(true);
   const loadingRef = useRef(false);
 
+  // Filter state
+  const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
+  const [selectedProject, setSelectedProject] = useState<string | null>(null);
+
+
   // Auth check
   useEffect(() => {
     if (_hasHydrated && !user) {
@@ -107,23 +112,59 @@ export default function VaultContent() {
     fetchVault(1);
   }, [fetchVault]);
 
-  const filteredEntries = useMemo(() => {
-    if (!searchQuery) return entries;
-
-    return entries.filter((entry) => {
-      const haystack = [
-        entry.title,
-        entry.snippet,
-        entry.author.username,
-        entry.project.name,
-        entry.tags.join(' '),
-      ]
-        .join(' ')
-        .toLowerCase();
-
-      return haystack.includes(searchQuery);
+  const categories = useMemo(() => {
+    const counts: Record<string, number> = {};
+    entries.forEach((entry) => {
+      const cat = entry.template_type || entry.category;
+      counts[cat] = (counts[cat] || 0) + 1;
     });
-  }, [entries, searchQuery]);
+    return Object.entries(counts).sort((a, b) => b[1] - a[1]);
+  }, [entries]);
+
+  const projects = useMemo(() => {
+    const projMap: Record<string, { id: string; name: string; count: number }> = {};
+    entries.forEach((entry) => {
+      if (!projMap[entry.project.id]) {
+        projMap[entry.project.id] = { ...entry.project, count: 0 };
+      }
+      projMap[entry.project.id].count++;
+    });
+    return Object.values(projMap).sort((a, b) => b[count] - a[count]);
+  }, [entries]);
+
+  const filteredEntries = useMemo(() => {
+    let result = entries;
+
+    // Search filter
+    if (searchQuery) {
+      result = result.filter((entry) => {
+        const haystack = [
+          entry.title,
+          entry.snippet,
+          entry.author.username,
+          entry.project.name,
+          entry.tags.join(' '),
+        ]
+          .join(' ')
+          .toLowerCase();
+
+        return haystack.includes(searchQuery);
+      });
+    }
+
+    // Category filter
+    if (selectedCategory) {
+      result = result.filter((entry) => (entry.template_type || entry.category) === selectedCategory);
+    }
+
+    // Project filter
+    if (selectedProject) {
+      result = result.filter((entry) => entry.project.id === selectedProject);
+    }
+
+    return result;
+  }, [entries, searchQuery, selectedCategory, selectedProject]);
+
 
   // Infinite scroll handler
   useEffect(() => {
@@ -152,6 +193,45 @@ export default function VaultContent() {
   return (
     <AppLayout title="Vault" subtitle="Your saved reflections and insights">
       <div className={styles.container}>
+        {/* SUB-HEADER FILTERS */}
+        <div className={styles.header}>
+          <div className={styles.tabs}>
+            <button 
+              className={`${styles.tab} ${!selectedCategory ? styles.active : ''}`}
+              onClick={() => setSelectedCategory(null)}
+            >
+              All
+            </button>
+            {categories.map(([cat, count]) => (
+              <button 
+                key={cat}
+                className={`${styles.tab} ${selectedCategory === cat ? styles.active : ''}`}
+                onClick={() => setSelectedCategory(cat)}
+              >
+                {cat.split('_').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')}
+                <span className={styles.tabCount}>{count}</span>
+              </button>
+            ))}
+          </div>
+
+          <div className={styles.projectFilter}>
+            <span className={styles.projectLabel}>Project:</span>
+            <select 
+              className={styles.projectSelect}
+              value={selectedProject || ''}
+              onChange={(e) => setSelectedProject(e.target.value || null)}
+            >
+              <option value="">All Projects</option>
+              {projects.map((proj) => (
+                <option key={proj.id} value={proj.id}>
+                  {proj.name} ({proj.count})
+                </option>
+              ))}
+            </select>
+          </div>
+        </div>
+
+        {/* MAIN FEED */}
         <div className={styles.feed} ref={scrollContainerRef}>
           {loading && entries.length === 0 ? (
             <div className={styles.feedGrid}>
@@ -178,10 +258,19 @@ export default function VaultContent() {
             </>
           ) : (
             <div className={styles.emptyState}>
-              {searchQuery ? (
+              {searchQuery || selectedCategory || selectedProject ? (
                 <>
                   <h2 className={styles.emptyTitle}>No vault matches found</h2>
-                  <p className={styles.emptySubtitle}>Try a different title, tag, author, or project keyword</p>
+                  <p className={styles.emptySubtitle}>Try adjusting your filters or search terms</p>
+                  <button 
+                    className={styles.clearFilters}
+                    onClick={() => {
+                      setSelectedCategory(null);
+                      setSelectedProject(null);
+                    }}
+                  >
+                    Clear all filters
+                  </button>
                 </>
               ) : (
                 <>
@@ -200,5 +289,7 @@ export default function VaultContent() {
         </div>
       </div>
     </AppLayout>
+
+
   );
 }
