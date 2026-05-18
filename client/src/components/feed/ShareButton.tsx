@@ -16,7 +16,7 @@ const ShareButton = ({ entryId, onShare }: ShareButtonProps) => {
     async (e: React.MouseEvent) => {
       e.stopPropagation();
 
-      const url = `/entry/${entryId}`;
+      const url = `/reflections/${entryId}`;
       
       try {
         await navigator.clipboard.writeText(url);

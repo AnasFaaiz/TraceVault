@@ -331,12 +331,66 @@ export class ReflectionsService {
       throw new NotFoundException('Reflection not found');
     }
 
-    // If userId is provided, check ownership (private view)
-    if (userId && reflection.project.userId !== userId) {
+    const isOwner = reflection.project.userId === userId;
+    const isPrivate = reflection.visibility === 'private';
+
+    if (isPrivate && !isOwner) {
       throw new ForbiddenException('You do not have access to this reflection');
     }
 
     return reflection;
+  }
+
+  /**
+   * Get related reflections within the same project
+   */
+  async getRelatedReflections(userId: string, id: string, limit: number = 4) {
+    const reflection = await this.prisma.reflection.findUnique({
+      where: { id },
+      include: {
+        project: {
+          select: {
+            id: true,
+            userId: true,
+          },
+        },
+      },
+    });
+
+    if (!reflection) {
+      throw new NotFoundException('Reflection not found');
+    }
+
+    const isOwner = reflection.project.userId === userId;
+    const isPrivate = reflection.visibility === 'private';
+
+    if (isPrivate && !isOwner) {
+      throw new ForbiddenException('You do not have access to this reflection');
+    }
+
+    const visibilityFilter = isOwner ? undefined : 'public';
+
+    const related = await this.prisma.reflection.findMany({
+      where: {
+        projectId: reflection.project.id,
+        id: { not: reflection.id },
+        ...(visibilityFilter ? { visibility: visibilityFilter } : {}),
+      },
+      select: {
+        id: true,
+        title: true,
+        category: true,
+        template_type: true,
+        impact: true,
+        createdAt: true,
+      },
+      orderBy: {
+        createdAt: 'desc',
+      },
+      take: Math.max(1, Math.min(limit, 12)),
+    });
+
+    return { entries: related };
   }
 
   /**

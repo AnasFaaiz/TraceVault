@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { Archive } from 'lucide-react';
 import { useAuthStore } from '@/store/useAuthStore';
 import api from '@/lib/api';
@@ -16,6 +16,10 @@ const VaultButton = ({ entryId, vaulted: initialVaulted, onVaultChange }: VaultB
   const user = useAuthStore((state) => state.user);
   const [vaulted, setVaulted] = useState(initialVaulted);
   const [isUpdating, setIsUpdating] = useState(false);
+
+  useEffect(() => {
+    setVaulted(initialVaulted);
+  }, [initialVaulted]);
 
   const handleVault = useCallback(
     async (e: React.MouseEvent) => {

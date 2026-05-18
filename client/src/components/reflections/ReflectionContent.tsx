@@ -1,6 +1,7 @@
 "use client";
 
 import ReactMarkdown from 'react-markdown';
+import type { ReactNode } from 'react';
 import { AlertCircle } from 'lucide-react';
 import { getTemplate, TemplateType } from '@/lib/templateDefinitions';
 
@@ -44,6 +45,56 @@ function truncate(text: string, max: number): string {
   return text.slice(0, max).trimEnd() + '...';
 }
 
+function splitList(value: string): string[] {
+  const lines = value
+    .split(/\n+/)
+    .map((line) => line.trim())
+    .filter(Boolean);
+
+  if (lines.length > 1) return lines;
+
+  const commaItems = value
+    .split(/,\s+/)
+    .map((item) => item.trim())
+    .filter(Boolean);
+
+  return commaItems.length > 1 ? commaItems : [];
+}
+
+function renderValue(value: ReflectionFields[keyof ReflectionFields], condensed: boolean): ReactNode {
+  if (condensed) {
+    return truncate(toText(value), 200);
+  }
+
+  if (Array.isArray(value)) {
+    return (
+      <ul style={{ margin: '0 0 0 18px', padding: 0, display: 'flex', flexDirection: 'column', gap: 6 }}>
+        {value.map((item) => (
+          <li key={String(item)} style={{ lineHeight: 1.7 }}>
+            {String(item)}
+          </li>
+        ))}
+      </ul>
+    );
+  }
+
+  const text = toText(value);
+  const listItems = splitList(text);
+  if (listItems.length > 1) {
+    return (
+      <ul style={{ margin: '0 0 0 18px', padding: 0, display: 'flex', flexDirection: 'column', gap: 6 }}>
+        {listItems.map((item) => (
+          <li key={item} style={{ lineHeight: 1.7 }}>
+            {item}
+          </li>
+        ))}
+      </ul>
+    );
+  }
+
+  return text;
+}
+
 export default function ReflectionContent({
   category,
   templateType,
@@ -61,11 +112,11 @@ export default function ReflectionContent({
 
     const ordered = template
       ? template.fields
-          .map((f) => ({ key: f.name, label: f.label, value: toText(structuredFields[f.name]) }))
-          .filter((item) => item.value.trim().length > 0)
+        .map((f) => ({ key: f.name, label: f.label, value: structuredFields[f.name] }))
+        .filter((item) => toText(item.value).trim().length > 0)
       : Object.entries(structuredFields)
-          .map(([key, value]) => ({ key, label: key.replace(/_/g, ' '), value: toText(value) }))
-          .filter((item) => item.value.trim().length > 0);
+        .map(([key, value]) => ({ key, label: key.replace(/_/g, ' '), value }))
+        .filter((item) => toText(item.value).trim().length > 0);
 
     const visibleRows = condensed ? ordered.slice(0, 2) : ordered;
 
@@ -85,7 +136,7 @@ export default function ReflectionContent({
             >
               {row.label}
             </p>
-            <p
+            <div
               style={{
                 fontSize: 14,
                 color: 'var(--ink)',
@@ -93,8 +144,8 @@ export default function ReflectionContent({
                 whiteSpace: 'pre-wrap',
               }}
             >
-              {condensed ? truncate(row.value, 200) : row.value}
-            </p>
+              {renderValue(row.value, condensed)}
+            </div>
           </div>
         ))}
       </div>

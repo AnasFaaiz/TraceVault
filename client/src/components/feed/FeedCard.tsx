@@ -58,7 +58,7 @@ const FeedCard = ({ entry }: { entry: FeedCardEntry }) => {
   const [reactions, setReactions] = useState(entry.reactions);
   const [vaulted, setVaulted]     = useState(entry.vaulted);
 
-  const handleCardClick = () => router.push(`/entry/${entry.id}`);
+  const handleCardClick = () => router.push(`/reflections/${entry.id}`);
 
   const handleTagClick = (tag: string, e: React.MouseEvent) => {
     e.stopPropagation();

@@ -131,7 +131,7 @@ const EntryList: React.FC<EntryListProps> = ({ username }) => {
                     <div style={{ fontSize: '10px', textTransform: 'uppercase', color: 'var(--text-muted)', width: '80px', flexShrink: 0 }}>
                       {(entry.category || entry.template_type).replace(/_/g, ' ')}
                     </div>
-                    <a href={`/entry/${entry.id}`} className={styles.entryTitle}>
+                    <a href={`/reflections/${entry.id}`} className={styles.entryTitle}>
                       {entry.title}
                     </a>
                     <div className={`${styles.impactBadge} ${getImpactClass(entry.impact)}`}>

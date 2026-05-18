@@ -13,6 +13,7 @@ import {
 } from '@nestjs/common';
 import { ReflectionsService } from './reflections.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+import { OptionalJwtAuthGuard } from '../auth/optional-jwt-auth.guard';
 
 @Controller('reflections')
 export class ReflectionsController {
@@ -147,11 +148,30 @@ export class ReflectionsController {
   /**
    * Get single reflection by ID
    */
+  @UseGuards(OptionalJwtAuthGuard)
   @Get(':id')
   getReflection(@Param('id') id: string, @Req() req: any) {
     // If user is logged in, pass userId, else undefined (public view)
     const userId = req.user?.userId;
     return this.reflectionsService.getReflectionById(userId, id);
+  }
+
+  /**
+   * Get related reflections within the same project
+   */
+  @UseGuards(OptionalJwtAuthGuard)
+  @Get(':id/related')
+  getRelated(
+    @Param('id') id: string,
+    @Req() req: any,
+    @Query('limit') limit?: string,
+  ) {
+    const userId = req.user?.userId;
+    return this.reflectionsService.getRelatedReflections(
+      userId,
+      id,
+      limit ? parseInt(limit) : 4,
+    );
   }
 
   /**
@@ -289,6 +309,22 @@ export class ReflectionsController {
     @Req() req: { user: { userId: string } },
   ) {
     return this.reflectionsService.toggleVault(entryId, req.user.userId);
+  }
+
+  /**
+   * Get vault status for an entry (auth required)
+   */
+  @UseGuards(JwtAuthGuard)
+  @Get(':id/vault-status')
+  async getVaultStatus(
+    @Param('id') entryId: string,
+    @Req() req: { user: { userId: string } },
+  ) {
+    const vaulted = await this.reflectionsService.getVaultStatus(
+      req.user.userId,
+      entryId,
+    );
+    return { vaulted };
   }
 
   /**
