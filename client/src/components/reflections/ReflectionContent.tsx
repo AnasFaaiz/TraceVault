@@ -61,6 +61,10 @@ function splitList(value: string): string[] {
   return commaItems.length > 1 ? commaItems : [];
 }
 
+function shouldRenderMarkdown(text: string): boolean {
+  return /\n|```|^\s*[-*]\s+/m.test(text);
+}
+
 function renderValue(value: ReflectionFields[keyof ReflectionFields], condensed: boolean): ReactNode {
   if (condensed) {
     return truncate(toText(value), 200);
@@ -92,7 +96,144 @@ function renderValue(value: ReflectionFields[keyof ReflectionFields], condensed:
     );
   }
 
+  if (shouldRenderMarkdown(text)) {
+    return (
+      <div className="structured-markdown" style={{ lineHeight: 1.7 }}>
+        <ReactMarkdown>{text}</ReactMarkdown>
+      </div>
+    );
+  }
+
   return text;
+}
+
+function renderSection(
+  label: string,
+  value: ReflectionFields[keyof ReflectionFields] | undefined,
+  condensed: boolean,
+  required = false,
+) {
+  const displayText = toText(value).trim();
+
+  return (
+    <div style={{
+      padding: '14px 16px',
+      borderRadius: 14,
+      border: '1px solid var(--border)',
+      background: '#fff',
+    }}>
+      <p
+        style={{
+          fontSize: 10,
+          fontFamily: 'var(--mono)',
+          color: 'var(--muted)',
+          textTransform: 'uppercase',
+          letterSpacing: '0.08em',
+          marginBottom: 8,
+        }}
+      >
+        {label}
+      </p>
+      <div
+        style={{
+          fontSize: 14,
+          color: 'var(--ink)',
+          lineHeight: 1.7,
+          whiteSpace: 'pre-wrap',
+        }}
+      >
+        {displayText.length > 0 ? (
+          renderValue(value, condensed)
+        ) : (
+          required ? <span style={{ color: 'var(--muted)', fontStyle: 'italic' }}>Not provided</span> : null
+        )}
+      </div>
+    </div>
+  );
+}
+
+function renderTemplateLayout(
+  templateType: string | undefined,
+  fields: ReflectionFields,
+  condensed: boolean,
+) {
+  if (condensed) return null;
+
+  switch (templateType) {
+    case 'design_decision':
+      return (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+          {renderSection('What triggered this decision', fields.what_triggered, condensed, true)}
+          {renderSection('Alternatives considered', fields.alternatives_considered, condensed, true)}
+          {renderSection('Reasoning', fields.reasoning, condensed, true)}
+          <div style={{ display: 'grid', gap: 12, gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))' }}>
+            {renderSection('Constraints', fields.constraints, condensed)}
+            {renderSection('Revisit condition', fields.revisit_condition, condensed)}
+          </div>
+        </div>
+      );
+    case 'technical_challenge':
+      return (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+          {renderSection('What broke', fields.what_broke, condensed, true)}
+          {renderSection('What you tried', fields.what_tried, condensed, true)}
+          {renderSection('What worked', fields.what_worked, condensed, true)}
+          <div style={{ display: 'grid', gap: 12, gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))' }}>
+            {renderSection('Root cause', fields.root_cause, condensed, true)}
+            {renderSection('Confidence', fields.confidence, condensed, true)}
+          </div>
+        </div>
+      );
+    case 'tradeoff':
+      return (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+          {renderSection('What you gained', fields.gained, condensed, true)}
+          {renderSection('What you gave up', fields.gave_up, condensed, true)}
+          <div style={{ display: 'grid', gap: 12, gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))' }}>
+            {renderSection('Constraints', fields.constraints, condensed)}
+            {renderSection('Revisit when', fields.revisit_when, condensed)}
+            {renderSection('Risk level', fields.risk_level, condensed, true)}
+          </div>
+        </div>
+      );
+    case 'lesson_learned':
+      return (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+          {renderSection('What happened', fields.what_happened, condensed, true)}
+          {renderSection('Assumption vs reality', fields.assumption_vs_reality, condensed, true)}
+          <div style={{ display: 'grid', gap: 12, gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))' }}>
+            {renderSection('Rule of thumb', fields.rule_of_thumb, condensed, true)}
+            {renderSection('Who should know', fields.who_should_know, condensed)}
+          </div>
+        </div>
+      );
+    case 'bug_autopsy':
+      return (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+          {renderSection('Symptoms', fields.symptoms, condensed, true)}
+          {renderSection('Ruled out', fields.ruled_out, condensed, true)}
+          {renderSection('Fix', fields.fix, condensed, true)}
+          <div style={{ display: 'grid', gap: 12, gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))' }}>
+            {renderSection('Root cause', fields.root_cause, condensed, true)}
+            {renderSection('Confidence', fields.confidence, condensed, true)}
+          </div>
+        </div>
+      );
+    case 'integration_note':
+      return (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+          {renderSection('The gotcha', fields.the_gotcha, condensed, true)}
+          {renderSection('How you discovered it', fields.how_discovered, condensed, true)}
+          {renderSection('Fix or workaround', fields.fix_or_workaround, condensed, true)}
+          <div style={{ display: 'grid', gap: 12, gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))' }}>
+            {renderSection('Is it documented?', fields.is_documented, condensed, true)}
+            {renderSection('Version affected', fields.version_affected, condensed)}
+          </div>
+        </div>
+      );
+    default:
+      return null;
+  }
 }
 
 export default function ReflectionContent({
@@ -109,16 +250,28 @@ export default function ReflectionContent({
 
   if (hasStructured) {
     const template = safeTemplate(templateType || category);
+    const richLayout = renderTemplateLayout(template?.value, structuredFields, condensed);
+
+    if (richLayout) {
+      return richLayout;
+    }
 
     const ordered = template
-      ? template.fields
-        .map((f) => ({ key: f.name, label: f.label, value: structuredFields[f.name] }))
-        .filter((item) => toText(item.value).trim().length > 0)
-      : Object.entries(structuredFields)
-        .map(([key, value]) => ({ key, label: key.replace(/_/g, ' '), value }))
-        .filter((item) => toText(item.value).trim().length > 0);
+      ? template.fields.map((f) => ({
+          key: f.name,
+          label: f.label,
+          value: structuredFields[f.name],
+          required: f.required,
+        }))
+      : Object.entries(structuredFields).map(([key, value]) => ({
+          key,
+          label: key.replace(/_/g, ' '),
+          value,
+          required: false,
+        }));
 
-    const visibleRows = condensed ? ordered.slice(0, 2) : ordered;
+    const withValues = ordered.filter((item) => toText(item.value).trim().length > 0);
+    const visibleRows = condensed ? withValues.slice(0, 2) : ordered;
 
     return (
       <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
@@ -144,7 +297,13 @@ export default function ReflectionContent({
                 whiteSpace: 'pre-wrap',
               }}
             >
-              {renderValue(row.value, condensed)}
+              {toText(row.value).trim().length > 0 ? (
+                renderValue(row.value, condensed)
+              ) : (
+                !condensed && row.required ? (
+                  <span style={{ color: 'var(--muted)', fontStyle: 'italic' }}>Not provided</span>
+                ) : null
+              )}
             </div>
           </div>
         ))}

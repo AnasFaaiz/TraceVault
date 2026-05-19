@@ -15,11 +15,13 @@ interface ReflectionDetail {
   template_type?: string;
   impact: string;
   tags?: string[];
-  fields?: Record<string, unknown> | null;
+  fields?: ReflectionFields | null;
   content?: string | null;
   userId: string;
   projectId: string;
 }
+
+type ReflectionFields = Record<string, string | string[] | boolean | null | undefined>;
 
 const TEMPLATE_LABELS: Record<string, string> = {
   design_decision: 'Design Decision',
@@ -41,6 +43,29 @@ function getConfidenceBadge(fields?: Record<string, unknown> | null) {
   const confidence = fields.confidence;
   if (typeof confidence !== 'string' || confidence.trim().length === 0) return null;
   return confidence;
+}
+
+function normalizeFields(fields?: Record<string, unknown> | null): ReflectionFields | null {
+  if (!fields || typeof fields !== 'object') return null;
+  const normalized: ReflectionFields = {};
+
+  Object.entries(fields).forEach(([key, value]) => {
+    if (
+      typeof value === 'string' ||
+      typeof value === 'boolean' ||
+      value === null ||
+      value === undefined
+    ) {
+      normalized[key] = value;
+      return;
+    }
+
+    if (Array.isArray(value) && value.every((item) => typeof item === 'string')) {
+      normalized[key] = value;
+    }
+  });
+
+  return normalized;
 }
 
 export default function ReflectionDetailPage() {
@@ -203,7 +228,7 @@ export default function ReflectionDetailPage() {
         <ReflectionContent
           category={reflection.category}
           templateType={reflection.template_type}
-          fields={reflection.fields}
+          fields={normalizeFields(reflection.fields)}
           content={reflection.content}
         />
       </div>
