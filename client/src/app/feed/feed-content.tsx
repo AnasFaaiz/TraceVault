@@ -1,15 +1,19 @@
-'use client';
+"use client";
 
-import { useEffect, useRef, useState, useCallback, useMemo } from 'react';
-import { Filter } from 'lucide-react';
-import { useRouter, useSearchParams } from 'next/navigation';
-import api from '@/lib/api';
-import AppLayout from '@/components/dashboard/AppLayout';
-import FeedCard from '@/components/feed/FeedCard';
-import FeedTabs from '@/components/feed/FeedTabs';
-import SkeletonCard from '@/components/feed/SkeletonCard';
-import FiltersPanel from '@/components/feed/FiltersPanel';
-import styles from './feed.module.css';
+import { useCallback, useEffect, useMemo, useState } from "react";
+import Link from "next/link";
+import { useRouter, useSearchParams } from "next/navigation";
+import { SlidersHorizontal } from "lucide-react";
+import api from "@/lib/api";
+import { useAuthStore } from "@/store/useAuthStore";
+import FeedCard from "@/components/feed/FeedCard";
+import FiltersPanel from "@/components/feed/FiltersPanel";
+import SkeletonCard from "@/components/feed/SkeletonCard";
+import SocialPostCard from "@/components/feed/SocialPostCard";
+import Toast, { ToastType } from "@/components/Toast";
+import styles from "./feed.module.css";
+
+type TrendingPeriod = "24h" | "7d" | "30d";
 
 interface FeedEntry {
   id: string;
@@ -18,11 +22,14 @@ interface FeedEntry {
   template_type?: string;
   impact: string;
   tags: string[];
+  content?: string;
+  fields?: Record<string, string | string[] | boolean | null | undefined>;
   snippet: string;
   readTime: string;
   confidence: string | null;
   createdAt: string;
   relativeDate: string;
+  type?: "reflection" | "social_post";
   author: {
     id: string;
     username: string;
@@ -40,7 +47,7 @@ interface FeedEntry {
   vaulted: boolean;
 }
 
-interface FeedResponse {
+interface PersonalizedFeedResponse {
   entries: FeedEntry[];
   pagination: {
     page: number;
@@ -50,451 +57,490 @@ interface FeedResponse {
   };
 }
 
-type TrendingPeriod = '24h' | '7d' | '30d';
-
-interface TrendingTraceCard {
+interface Project {
   id: string;
-  title: string;
-  category: 'Technical Challenge' | 'Design Decision' | 'Lesson Learned';
-  severity: 'Minor' | 'Significant' | 'Pivotal';
-  tags: string[];
-  insightStrength: number;
-  learningMomentum: number;
-  contributors: {
-    avatars: string[];
-    count: number;
-  };
-  activityCount: number;
-  trendStartedAt: string;
-}
-
-interface TrendingResponse {
-  period: TrendingPeriod;
-  entries: TrendingTraceCard[];
+  name: string;
 }
 
 const SKELETON_COUNT = 3;
-type FeedView = 'for_you' | 'from_your_stack';
+const MAX_BODY_LENGTH = 500;
+const MAX_TITLE_LENGTH = 80;
 
-export default function FeedContent() {
-  const router = useRouter();
+export function FeedProvider({ children }: { children: React.ReactNode }) {
+  return <>{children}</>;
+}
+
+export function FeedContent() {
   const searchParams = useSearchParams();
-  const scrollContainerRef = useRef<HTMLDivElement>(null);
-
-  // Get URL parameters
-  const viewParam = searchParams.get('view');
-  const view: FeedView = viewParam === 'from_your_stack' ? 'from_your_stack' : 'for_you';
-  const tags = searchParams.get('tags');
-  const templateTypes = searchParams.get('template_type');
-  const impact = searchParams.get('impact');
-  const confidence = searchParams.get('confidence');
-  const searchQuery = (searchParams.get('q') || '').trim().toLowerCase();
-
-  // State
+  const router = useRouter();
+  const { user, _hasHydrated } = useAuthStore();
   const [entries, setEntries] = useState<FeedEntry[]>([]);
   const [loading, setLoading] = useState(true);
-  const [page, setPage] = useState(1);
-  const [hasMore, setHasMore] = useState(true);
-  const [newEntriesCount, setNewEntriesCount] = useState(0);
-  const [isFilterPanelOpen, setIsFilterPanelOpen] = useState(false);
-  const [activeFilterCount, setActiveFilterCount] = useState(0);
-  const [trendingPeriod, setTrendingPeriod] = useState<TrendingPeriod>('24h');
-  const [trendingEntries, setTrendingEntries] = useState<TrendingTraceCard[]>([]);
-  const [trendingLoading, setTrendingLoading] = useState(true);
-  const loadingRef = useRef(false);
+  const [error, setError] = useState<string | null>(null);
+  const [isFiltersOpen, setIsFiltersOpen] = useState(false);
+  const [trending, setTrending] = useState<FeedEntry[]>([]);
+  const [railLoading, setRailLoading] = useState(true);
+  const [railError, setRailError] = useState(false);
+  const [trendPeriod, setTrendPeriod] = useState<TrendingPeriod>("24h");
+  const [projects, setProjects] = useState<Project[]>([]);
+  const [selectedProjectId, setSelectedProjectId] = useState("");
+  const [composerTitle, setComposerTitle] = useState("");
+  const [composerBody, setComposerBody] = useState("");
+  const [isPublishing, setIsPublishing] = useState(false);
+  const [toast, setToast] = useState<{
+    message: string;
+    type: ToastType;
+  } | null>(null);
 
-  // Calculate active filter count
-  useEffect(() => {
-    let count = 0;
-    if (templateTypes?.split(',').filter(Boolean).length) count++;
-    if (impact?.split(',').filter(Boolean).length) count++;
-    if (confidence && confidence !== 'any') count++;
-    if (tags?.split(',').filter(Boolean).length) count += tags.split(',').filter(Boolean).length;
-    setActiveFilterCount(count);
-  }, [templateTypes, impact, confidence, tags]);
-
-  // Fetch feed
-  const fetchFeed = useCallback(
-    async (pageNum: number = 1) => {
-      if (loadingRef.current) return;
-      loadingRef.current = true;
-
-      try {
-        setLoading(pageNum === 1);
-
-        const response = await api.get<FeedResponse>('/reflections/feed/personalized', {
-          params: {
-            view,
-            tags: tags || undefined,
-            template_type: templateTypes || undefined,
-            impact: impact || undefined,
-            confidence: confidence || undefined,
-            page: pageNum,
-            limit: 20,
-          },
-        });
-
-        if (pageNum === 1) {
-          setEntries(response.data.entries);
-          setNewEntriesCount(0);
-        } else {
-          setEntries((prev) => [...prev, ...response.data.entries]);
-        }
-
-        setPage(pageNum);
-        setHasMore(response.data.pagination.hasMore);
-      } catch (error) {
-        console.error('Failed to fetch feed', error);
-      } finally {
-        setLoading(false);
-        loadingRef.current = false;
-      }
-    },
-    [view, tags, templateTypes, impact, confidence],
-  );
-
-  // Initial fetch when parameters change
-  useEffect(() => {
-    setPage(1);
-    setEntries([]);
-    setNewEntriesCount(0);
-    fetchFeed(1);
-  }, [view, tags, templateTypes, impact, confidence, fetchFeed]);
-
-  // Infinite scroll handler
-  useEffect(() => {
-    const handleScroll = () => {
-      if (!scrollContainerRef.current) return;
-
-      const { scrollTop, scrollHeight, clientHeight } = scrollContainerRef.current;
-      const isAtBottom = scrollHeight - scrollTop - clientHeight < 500;
-
-      if (isAtBottom && hasMore && !loading && !loadingRef.current) {
-        fetchFeed(page + 1);
-      }
+  const activeFilters = useMemo(() => {
+    return {
+      tags: searchParams.get("tags") || "",
+      templateType: searchParams.get("template_type") || "",
+      impact: searchParams.get("impact") || "",
+      confidence: searchParams.get("confidence") || "",
     };
+  }, [searchParams]);
 
-    const container = scrollContainerRef.current;
-    if (container) {
-      container.addEventListener('scroll', handleScroll);
-      return () => container.removeEventListener('scroll', handleScroll);
-    }
-  }, [page, hasMore, loading, fetchFeed]);
+  const filterCount = useMemo(() => {
+    const tagCount = activeFilters.tags
+      ? activeFilters.tags.split(",").filter(Boolean).length
+      : 0;
+    const templateCount = activeFilters.templateType
+      ? activeFilters.templateType.split(",").filter(Boolean).length
+      : 0;
+    const impactCount = activeFilters.impact
+      ? activeFilters.impact.split(",").filter(Boolean).length
+      : 0;
+    const confidenceCount = activeFilters.confidence ? 1 : 0;
 
-  // Check for new entries periodically
-  useEffect(() => {
-    const checkNewEntries = async () => {
-      try {
-        const response = await api.get<FeedResponse>('/reflections/feed/personalized', {
-          params: {
-            view,
-            tags: tags || undefined,
-            template_type: templateTypes || undefined,
-            impact: impact || undefined,
-            confidence: confidence || undefined,
-            page: 1,
-            limit: 1,
-          },
-        });
+    return tagCount + templateCount + impactCount + confidenceCount;
+  }, [activeFilters]);
 
-        if (response.data.pagination.total > entries.length + newEntriesCount) {
-          setNewEntriesCount(response.data.pagination.total - entries.length);
-        }
-      } catch (error) {
-        console.error('Failed to check new entries', error);
-      }
-    };
+  const fetchFeed = useCallback(async () => {
+    if (!_hasHydrated) return;
 
-    const interval = setInterval(checkNewEntries, 30000); // Check every 30 seconds
-    return () => clearInterval(interval);
-  }, [view, tags, templateTypes, impact, confidence, entries.length, newEntriesCount]);
+    setLoading(true);
+    setError(null);
 
-  const handleLoadNewEntries = () => {
-    setEntries([]);
-    setPage(1);
-    setNewEntriesCount(0);
-    fetchFeed(1);
-  };
-
-  const filteredEntries = useMemo(() => {
-    if (!searchQuery) return entries;
-
-    return entries.filter((entry) => {
-      const haystack = [
-        entry.title,
-        entry.snippet,
-        entry.author.username,
-        entry.project.name,
-        entry.tags.join(' '),
-      ]
-        .join(' ')
-        .toLowerCase();
-
-      return haystack.includes(searchQuery);
-    });
-  }, [entries, searchQuery]);
-
-  const fetchTrending = useCallback(async () => {
-    setTrendingLoading(true);
     try {
-      const response = await api.get<TrendingResponse>('/reflections/trending', {
-        params: {
-          period: trendingPeriod,
-          limit: 5,
-        },
-      });
-      setTrendingEntries(response.data.entries || []);
+      if (user) {
+        const response = await api.get<PersonalizedFeedResponse>(
+          "/reflections/feed/personalized",
+          {
+            params: {
+              view: "for_you",
+              tags: activeFilters.tags || undefined,
+              template_type: activeFilters.templateType || undefined,
+              impact: activeFilters.impact || undefined,
+              confidence: activeFilters.confidence || undefined,
+              page: 1,
+              limit: 20,
+            },
+          },
+        );
+        setEntries(response.data?.entries || []);
+      } else {
+        const response = await api.get<FeedEntry[]>("/reflections/feed", {
+          params: { limit: 20 },
+        });
+        setEntries(response.data || []);
+      }
     } catch (error) {
-      console.error('Failed to fetch trending entries', error);
-      setTrendingEntries([]);
+      console.error("Failed to fetch feed:", error);
+      setError("Unable to load the feed right now.");
+      setEntries([]);
     } finally {
-      setTrendingLoading(false);
+      setLoading(false);
     }
-  }, [trendingPeriod]);
+  }, [activeFilters, _hasHydrated, user]);
 
   useEffect(() => {
-    fetchTrending();
-  }, [fetchTrending]);
+    fetchFeed();
+  }, [fetchFeed]);
 
-  const getRelativeTrendTime = useCallback((isoDate: string) => {
-    const date = new Date(isoDate);
-    const now = new Date();
-    const diffMs = now.getTime() - date.getTime();
+  useEffect(() => {
+    if (!_hasHydrated) return;
 
-    const mins = Math.floor(diffMs / 60000);
-    const hours = Math.floor(mins / 60);
-    const days = Math.floor(hours / 24);
+    let isActive = true;
 
-    if (mins < 1) return 'just now';
-    if (mins < 60) return `${mins}m ago`;
-    if (hours < 24) return `${hours}h ago`;
-    if (days < 7) return `${days}d ago`;
+    const fetchRail = async () => {
+      setRailLoading(true);
+      setRailError(false);
 
-    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-  }, []);
+      try {
+        const trendingResponse = await api.get<FeedEntry[]>(
+          "/reflections/trending",
+          {
+            params: { period: trendPeriod, limit: 5 },
+          },
+        );
 
-  const getEmptyStateMessage = () => {
-    if (searchQuery) {
-      return {
-        title: 'No matches found',
-        subtitle: 'Try a different title, tag, author, or project keyword',
-      };
+        if (!isActive) return;
+
+        setTrending(trendingResponse.data || []);
+      } catch (error) {
+        console.error("Failed to load feed rail", error);
+        if (!isActive) return;
+        setRailError(true);
+        setTrending([]);
+      } finally {
+        if (isActive) setRailLoading(false);
+      }
+    };
+
+    fetchRail();
+
+    return () => {
+      isActive = false;
+    };
+  }, [_hasHydrated, trendPeriod]);
+
+  useEffect(() => {
+    if (!_hasHydrated || !user) {
+      setProjects([]);
+      setSelectedProjectId("");
+      return;
     }
 
-    if (view === 'for_you' && entries.length === 0 && !loading) {
-      return {
-        title: 'No entries match your stack yet',
-        subtitle: 'Start adding entries with tags to personalize this feed',
-      };
+    let isActive = true;
+
+    const fetchProjects = async () => {
+      try {
+        const response = await api.get<any>("/projects");
+        if (!isActive) return;
+        const projectList = Array.isArray(response.data)
+          ? response.data
+          : response.data?.projects || [];
+        setProjects(projectList);
+      } catch (error) {
+        console.error("Failed to fetch projects", error);
+        if (!isActive) return;
+        setProjects([]);
+      }
+    };
+
+    fetchProjects();
+
+    return () => {
+      isActive = false;
+    };
+  }, [_hasHydrated, user]);
+
+  const composerDisabled = !user || projects.length === 0;
+  const hasComposerContent =
+    composerTitle.trim().length > 0 || composerBody.trim().length > 0;
+  const publishDisabled =
+    isPublishing ||
+    !user ||
+    !selectedProjectId ||
+    composerBody.trim().length === 0;
+
+  const handlePublish = async () => {
+    if (!user) {
+      router.push("/login");
+      return;
     }
 
-    if (tags || templateTypes || impact || confidence) {
-      return {
-        title: 'No entries match these filters',
-        subtitle: 'Try adjusting your filters',
-      };
+    if (!selectedProjectId) {
+      setToast({
+        message: "Select a project to post under.",
+        type: "error",
+      });
+      return;
     }
 
-    return null;
+    if (!hasComposerContent || composerBody.trim().length === 0) {
+      setToast({
+        message: "Add a title or a short update before publishing.",
+        type: "error",
+      });
+      return;
+    }
+
+    setIsPublishing(true);
+
+    try {
+      await api.post("/reflections", {
+        projectId: selectedProjectId,
+        title: composerTitle.trim() || "Quick update",
+        entryType: "social_post",
+        content: composerBody.trim(),
+      });
+
+      setComposerTitle("");
+      setComposerBody("");
+      setToast({ message: "Your update is live.", type: "success" });
+      fetchFeed();
+    } catch (error) {
+      console.error("Failed to publish update", error);
+      setToast({
+        message: "Could not publish your update. Try again.",
+        type: "error",
+      });
+    } finally {
+      setIsPublishing(false);
+    }
   };
-
-  const emptyState = getEmptyStateMessage();
-
-  const filterButton = (
-    <button
-      type="button"
-      className={styles.filterInlineButton}
-      onClick={() => setIsFilterPanelOpen(true)}
-      aria-label="Open filters"
-      title="Filters"
-    >
-      <Filter size={16} />
-      {activeFilterCount > 0 && (
-        <span className={styles.filterBadge}>{activeFilterCount}</span>
-      )}
-    </button>
-  );
 
   return (
-    <AppLayout
-      title="Community Feed"
-      subtitle="Discover and engage with reflections from your engineering community"
-      headerActions={filterButton}
-      headerLeftContent={<FeedTabs activeView={view} />}
-      onReflectionCreated={handleLoadNewEntries}
-    >
-      <div className={styles.container}>
-        {newEntriesCount > 0 && (
-          <button
-            className={styles.newEntriesBanner}
-            onClick={handleLoadNewEntries}
-          >
-            {newEntriesCount} new {newEntriesCount === 1 ? 'entry' : 'entries'} — click to load
-          </button>
-        )}
+    <div className={styles.feedLayout}>
+      <div className={styles.feedMainColumn}>
+        <div className={styles.composerCard}>
+          <div className={styles.composerHeader}>
+            <div className={styles.composerAvatar}>
+              {user?.avatarUrl ? (
+                <span
+                  className={styles.composerAvatarImage}
+                  style={{
+                    backgroundImage: `url(${user.avatarUrl})`,
+                  }}
+                />
+              ) : (
+                <span className={styles.composerAvatarFallback}>
+                  {user?.username?.[0]?.toUpperCase() || "T"}
+                </span>
+              )}
+            </div>
+            <div className={styles.composerHeaderText}>
+              <h3 className={styles.composerTitle}>Feed Updates</h3>
+              <p className={styles.composerSubtitle}>
+                {user
+                  ? `Share a quick technical update, @${user.username}`
+                  : "Sign in to share updates with the community."}
+              </p>
+            </div>
+            <div className={styles.composerHeaderActions}>
+              <button
+                type="button"
+                className={styles.filterInlineButton}
+                onClick={() => setIsFiltersOpen(true)}
+                title="Filter feed"
+              >
+                <SlidersHorizontal size={14} />
+                {filterCount > 0 && (
+                  <span className={styles.filterBadge}>{filterCount}</span>
+                )}
+              </button>
+            </div>
+          </div>
 
-        <div className={styles.feed} ref={scrollContainerRef}>
-          <div className={styles.feedLayout}>
-            <div className={styles.feedMainColumn}>
-              {loading && entries.length === 0 ? (
-                <div className={styles.feedGrid}>
-                  {Array.from({ length: SKELETON_COUNT }).map((_, i) => (
-                    <SkeletonCard key={i} />
+          <div className={styles.composerForm}>
+            <div className={styles.composerRow}>
+              <input
+                id="feed-title"
+                type="text"
+                className={styles.composerInput}
+                placeholder="Give it a headline (optional)"
+                value={composerTitle}
+                maxLength={MAX_TITLE_LENGTH}
+                onChange={(event) => setComposerTitle(event.target.value)}
+                disabled={composerDisabled}
+              />
+
+              <div className={styles.composerSelectWrapper}>
+                <select
+                  id="feed-project"
+                  className={styles.composerSelect}
+                  value={selectedProjectId}
+                  onChange={(event) =>
+                    setSelectedProjectId(event.target.value)
+                  }
+                  disabled={composerDisabled}
+                >
+                  <option value="">Select a project</option>
+                  {projects.map((project) => (
+                    <option key={project.id} value={project.id}>
+                      {project.name}
+                    </option>
                   ))}
-                </div>
-              ) : filteredEntries.length > 0 ? (
-                <>
-                  <div className={styles.feedGrid}>
-                    {filteredEntries.map((entry) => (
-                      <FeedCard key={entry.id} entry={entry} />
-                    ))}
-                  </div>
-                  {loading && page > 1 && (
-                    <div className={styles.loadingMore}>
-                      <div className={styles.skeletonRow}>
-                        {Array.from({ length: 3 }).map((_, i) => (
-                          <SkeletonCard key={i} />
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                </>
-              ) : emptyState ? (
-                <div className={styles.emptyState}>
-                  <h2 className={styles.emptyTitle}>{emptyState.title}</h2>
-                  <p className={styles.emptySubtitle}>{emptyState.subtitle}</p>
-                  {(tags || templateTypes || impact || confidence) && (
-                    <button
-                      className={styles.clearFiltersLink}
-                      onClick={() => router.push(`/feed?view=${view}`)}
-                    >
-                      Clear filters
-                    </button>
-                  )}
-                </div>
-              ) : null}
+                </select>
+                {user && projects.length === 0 && (
+                  <Link
+                    className={styles.composerProjectCTA}
+                    href="/projects/new"
+                  >
+                    + Create Project
+                  </Link>
+                )}
+              </div>
             </div>
 
-            <aside className={styles.rightRail}>
-              <section className={styles.railSection}>
-                <div className={styles.railHeader}>
-                  <h3 className={styles.railTitle}>Trending</h3>
-                  <div className={styles.periodSwitch}>
-                    {[
-                      { value: '24h', label: 'Today' },
-                      { value: '7d', label: 'Week' },
-                      { value: '30d', label: 'Month' },
-                    ].map((option) => (
-                      <button
-                        key={option.value}
-                        type="button"
-                        className={`${styles.periodButton} ${
-                          trendingPeriod === option.value ? styles.periodButtonActive : ''
-                        }`}
-                        onClick={() => setTrendingPeriod(option.value as TrendingPeriod)}
-                      >
-                        {option.label}
-                      </button>
-                    ))}
-                  </div>
-                </div>
+            <textarea
+              id="feed-body"
+              className={styles.composerTextarea}
+              placeholder="What did you learn today? (Short updates publish as social posts)"
+              value={composerBody}
+              maxLength={MAX_BODY_LENGTH}
+              onChange={(event) => setComposerBody(event.target.value)}
+              disabled={composerDisabled}
+            />
 
-                {trendingLoading ? (
-                  <ul className={styles.rankedSkeletonList} aria-hidden="true">
-                    {Array.from({ length: 3 }).map((_, index) => (
-                      <li key={index} className={styles.rankedSkeletonItem}>
-                        <span className={styles.rankSkeletonTitle} />
-                        <span className={styles.rankSkeletonTitleShort} />
-                        <div className={styles.rankSkeletonSocialRow}>
-                          <span className={styles.rankSkeletonAvatar} />
-                          <span className={styles.rankSkeletonSocialText} />
-                        </div>
-                        <div className={styles.rankSkeletonTagsRow}>
-                          <span className={styles.rankSkeletonTag} />
-                          <span className={styles.rankSkeletonTag} />
-                          <span className={styles.rankSkeletonTag} />
-                        </div>
-                        <span className={styles.rankSkeletonMeta} />
-                        <div className={styles.rankSkeletonHighlightRow}>
-                          <span className={styles.rankSkeletonBadge} />
-                          <span className={styles.rankSkeletonBadgeWide} />
-                          <span className={styles.rankSkeletonTime} />
-                        </div>
-                        <span className={styles.rankSkeletonText} />
-                      </li>
-                    ))}
-                  </ul>
-                ) : trendingEntries.length > 0 ? (
-                  <ol className={styles.rankedList}>
-                    {trendingEntries.map((entry) => (
-                      <li key={entry.id} className={styles.trendingItem}>
-                        <div className={styles.trendingTitleRow}>
-                          <span className={styles.rankedText}>{entry.title}</span>
-                        </div>
+            <div className={styles.composerFooter}>
+              <div className={styles.composerShortcuts}>
+                <span className={styles.composerCharCount}>
+                  {composerBody.length}/{MAX_BODY_LENGTH}
+                </span>
+              </div>
+              <div className={styles.composerActions}>
+                <button
+                  type="button"
+                  className={styles.composerButton}
+                  onClick={handlePublish}
+                  disabled={publishDisabled}
+                >
+                  {isPublishing ? "Publishing..." : "Publish"}
+                </button>
+              </div>
+            </div>
 
-                        <div className={styles.contributorRow}>
-                          <div className={styles.avatarStack}>
-                            {Array.from({
-                              length: Math.min(
-                                3,
-                                Math.max(entry.contributors.avatars.length, entry.contributors.count || 0),
-                              ),
-                            }).map((_, avatarIndex) => (
-                              <span
-                                key={avatarIndex}
-                                className={styles.contributorAvatarPlaceholder}
-                                aria-hidden="true"
-                              />
-                            ))}
-                          </div>
-                          <span className={styles.contributorCount}>
-                            {entry.contributors.count} developers faced this issue
-                          </span>
-                        </div>
-
-                        {entry.tags.length > 0 && (
-                          <div className={styles.tagList}>
-                            {entry.tags.slice(0, 3).map((tag) => (
-                              <span key={`${entry.id}-${tag}`} className={styles.railTag}>
-                                #{tag}
-                              </span>
-                            ))}
-                          </div>
-                        )}
-
-                        <p className={styles.trendingMeta}>
-                          {entry.category} · {entry.severity}
-                        </p>
-
-                        <div className={styles.trendingHighlightRow}>
-                          <span className={`${styles.trendingBadge} ${styles.insightBadge}`}>
-                            Insight Strength {entry.insightStrength}%
-                          </span>
-                          <span className={`${styles.trendingBadge} ${styles.momentumBadge}`}>
-                            Momentum {entry.learningMomentum >= 0 ? '+' : ''}
-                            {entry.learningMomentum}%
-                          </span>
-                          <span className={styles.trendingTimeInline}>
-                            {getRelativeTrendTime(entry.trendStartedAt)}
-                          </span>
-                        </div>
-                      </li>
-                    ))}
-                  </ol>
-                ) : (
-                  <p className={styles.railEmpty}>No trending entries yet</p>
-                )}
-              </section>
-            </aside>
+            {!user && (
+              <div className={styles.composerOverlay}>
+                <button
+                  type="button"
+                  className={styles.composerLoginButton}
+                  onClick={() => router.push("/login")}
+                >
+                  Sign in to post
+                </button>
+              </div>
+            )}
           </div>
         </div>
 
         <FiltersPanel
-          isOpen={isFilterPanelOpen}
-          onClose={() => setIsFilterPanelOpen(false)}
-          activeView={view}
+          isOpen={isFiltersOpen}
+          onClose={() => setIsFiltersOpen(false)}
+          activeView="for_you"
         />
+
+        <div className={styles.feedGrid}>
+          {loading && (
+            <div className={styles.skeletonRow}>
+              {Array.from({ length: SKELETON_COUNT }).map((_, index) => (
+                <SkeletonCard key={`skeleton-${index}`} />
+              ))}
+            </div>
+          )}
+
+          {!loading && error && (
+            <div className={styles.emptyState}>
+              <div className={styles.emptyIcon}>!</div>
+              <h3 className={styles.emptyTitle}>Feed unavailable</h3>
+              <p className={styles.emptySubtitle}>{error}</p>
+            </div>
+          )}
+
+          {!loading && !error && entries.length === 0 && (
+            <div className={styles.emptyState}>
+              <div className={styles.emptyIcon}>?</div>
+              <h3 className={styles.emptyTitle}>No reflections yet</h3>
+              <p className={styles.emptySubtitle}>
+                Try adjusting your filters or check back soon.
+              </p>
+            </div>
+          )}
+
+          {!loading && !error && entries.length > 0 &&
+            entries.map((entry) =>
+              entry.type === "social_post" ? (
+                <SocialPostCard key={entry.id} entry={entry} />
+              ) : (
+                <FeedCard key={entry.id} entry={entry} />
+              ),
+            )}
+        </div>
       </div>
-    </AppLayout>
+
+      <aside className={styles.rightRail}>
+        <section className={styles.railSection}>
+          <div className={styles.railHeader}>
+            <h3 className={styles.railTitle}>Trending Now</h3>
+            <div className={styles.periodSwitch}>
+              {(["24h", "7d", "30d"] as TrendingPeriod[]).map((period) => (
+                <button
+                  key={period}
+                  type="button"
+                  className={`${styles.periodButton} ${
+                    trendPeriod === period ? styles.periodButtonActive : ""
+                  }`}
+                  onClick={() => setTrendPeriod(period)}
+                >
+                  {period}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {railLoading && (
+            <ul className={styles.rankedSkeletonList}>
+              {Array.from({ length: 3 }).map((_, index) => (
+                <li key={`trend-skeleton-${index}`} className={styles.rankedSkeletonItem}>
+                  <div className={styles.rankSkeletonTitle} />
+                  <div className={styles.rankSkeletonMeta} />
+                  <div className={styles.rankSkeletonHighlightRow}>
+                    <div className={styles.rankSkeletonBadge} />
+                    <div className={styles.rankSkeletonTime} />
+                  </div>
+                </li>
+              ))}
+            </ul>
+          )}
+
+          {!railLoading && railError && (
+            <p className={styles.railEmpty}>Unable to load trending entries.</p>
+          )}
+
+          {!railLoading && !railError && trending.length === 0 && (
+            <p className={styles.railEmpty}>No trending reflections yet.</p>
+          )}
+
+          {!railLoading && !railError && trending.length > 0 && (
+            <ul className={styles.rankedList}>
+              {trending.map((entry, index) => (
+                <li key={entry.id} className={styles.trendingItem}>
+                  <div className={styles.trendingTitleRow}>
+                    <span className={styles.rankNumber}>{index + 1}</span>
+                    <span className={styles.rankedText}>
+                      {entry.title || "Untitled"}
+                    </span>
+                  </div>
+                  <div className={styles.trendingHighlightRow}>
+                    {entry.impact && (
+                      <span className={styles.trendingBadge}>
+                        {entry.impact.replace(/_/g, " ")}
+                      </span>
+                    )}
+                    {entry.template_type && (
+                      <span
+                        className={`${styles.trendingBadge} ${styles.insightBadge}`}
+                      >
+                        {entry.template_type.replace(/_/g, " ")}
+                      </span>
+                    )}
+                    <span className={styles.trendingTimeInline}>
+                      {entry.relativeDate}
+                    </span>
+                  </div>
+                  <p className={styles.trendingMetric}>
+                    <strong>
+                      {entry.reactions.useful.count +
+                        entry.reactions.applied.count}
+                    </strong>{" "}
+                    reactions
+                  </p>
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
+      </aside>
+      {toast && (
+        <Toast
+          message={toast.message}
+          type={toast.type}
+          onClose={() => setToast(null)}
+        />
+      )}
+    </div>
   );
 }

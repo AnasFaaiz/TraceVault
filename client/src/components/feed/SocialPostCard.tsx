@@ -1,68 +1,38 @@
 "use client";
 
-import { MoreHorizontal, Link, ArrowUp, ArrowDown, Check } from "lucide-react";
-import { useCallback, useState } from "react";
-import React from "react";
-import { ALL_TEMPLATES, getTemplate, TemplateType } from "@/lib/templateDefinitions";
+import React, { useCallback, useState } from "react";
+import Link from "next/link";
+import { MoreHorizontal, ArrowUp, ArrowDown, Check, Link as LinkIcon } from "lucide-react";
 import api from "@/lib/api";
 import { useAuthStore } from "@/store/useAuthStore";
-import styles from "./FeedCard.module.css";
+import styles from "./FeedCard.module.css"; // Inheriting baseline card wrappers to keep styling dry
 
-interface FeedEntry {
-  id: string;
-  title: string;
-  category: string;
-  template_type?: string;
-  impact: string;
-  tags: string[];
-  fields?: Record<string, string | string[] | boolean | null | undefined>;
-  snippet: string;
-  readTime: string;
-  confidence: string | null;
-  createdAt: string;
-  relativeDate: string;
-  author: {
+interface SocialPostCardProps {
+  entry: {
     id: string;
-    username: string;
-    avatarUrl: string | null;
+    title: string;
+    content?: string;
+    relativeDate: string;
+    tags: string[];
+    author: {
+      id: string;
+      username: string;
+      avatarUrl: string | null;
+    };
+    project: {
+      id: string;
+      name: string;
+    };
+    reactions: {
+      useful: { count: number; reacted: boolean };
+      critical: { count: number; reacted: boolean };
+      applied: { count: number; reacted: boolean };
+    };
+    vaulted: boolean;
   };
-  project: {
-    id: string;
-    name: string;
-  };
-  reactions: {
-    useful: { count: number; reacted: boolean };
-    critical: { count: number; reacted: boolean };
-    applied?: { count: number; reacted: boolean };
-  };
-  vaulted: boolean;
 }
 
-interface FeedCardProps {
-  entry: FeedEntry;
-}
-
-// Dynamic color generator for tags/badges
-const getBadgeStyle = (text: string) => {
-  const normalizedText = text.toUpperCase();
-  switch (normalizedText) {
-    case "MINOR":
-      return { backgroundColor: "#fef3c7", color: "#b45309" };
-    case "MAJOR":
-      return { backgroundColor: "#fee2e2", color: "#b91c1c" };
-    case "LESSON_LEARNED":
-    case "LESSON LEARNED":
-      return { backgroundColor: "#dcfce7", color: "#15803d" };
-    case "BUG":
-      return { backgroundColor: "#e0e7ff", color: "#4338ca" };
-    case "FEATURE":
-      return { backgroundColor: "#e1effe", color: "#1d4ed8" };
-    default:
-      return { backgroundColor: "#f3f4f6", color: "#4b5563" };
-  }
-};
-
-export default function FeedCard({ entry }: FeedCardProps) {
+export default function SocialPostCard({ entry }: SocialPostCardProps) {
   const user = useAuthStore((state) => state.user);
   const [upCount, setUpCount] = useState(entry.reactions.useful.count);
   const [downCount, setDownCount] = useState(entry.reactions.critical.count);
@@ -172,9 +142,8 @@ export default function FeedCard({ entry }: FeedCardProps) {
       console.error("Failed to copy link: ", err);
     }
   };
-
   return (
-    <div className={styles.feedCard}>
+    <div className={`${styles.feedCard} ${styles.socialPostCard}`}>
       <button
         type="button"
         className={styles.moreButton}
@@ -182,40 +151,52 @@ export default function FeedCard({ entry }: FeedCardProps) {
       >
         <MoreHorizontal size={16} />
       </button>
-
+      {/* Upper Content Frame */}
       <div className={styles.cardHeader}>
-        <div className={styles.metaInfo}>
-          <span className={styles.authorName}>@{entry.author.username}</span>
-          <span className={styles.divider}>•</span>
-          <span className={styles.projectName}>{entry.project.name}</span>
+        <div className={styles.authorMeta}>
+          {entry.author.avatarUrl ? (
+            <img
+              src={entry.author.avatarUrl}
+              alt={entry.author.username}
+              className={styles.avatar}
+            />
+          ) : (
+            <div className={styles.avatarPlaceholder} aria-hidden="true" />
+          )}
+          <div className={styles.authorLine}>
+            <span className={styles.authorName}>{entry.author.username}</span>
+            <span className={styles.postDivider}>shared a quick update in</span>
+            <Link
+              href={`/projects/${entry.project.id}`}
+              className={styles.projectLink}
+            >
+              {entry.project.name}
+            </Link>
+          </div>
         </div>
 
-        <div className={styles.badgeRow}>
-          {entry.impact && (
-            <span
-              className={styles.statusBadge}
-              style={getBadgeStyle(entry.impact)}
-            >
-              {entry.impact.replace(/_/g, " ")}
-            </span>
-          )}
-          {entry.template_type && (
-            <span
-              className={styles.statusBadge}
-              style={getBadgeStyle(entry.template_type)}
-            >
-              {entry.template_type.replace(/_/g, " ")}
-            </span>
-          )}
-        </div>
+        {/* header actions (progressive actions are in footer) */}
+        <div />
       </div>
 
+      {/* Simplified, high-readability body block layout */}
       <div className={styles.cardBody}>
-        <h3 className={styles.cardTitle}>{entry.title}</h3>
-        {renderTemplatePreview(entry.template_type, entry.fields) ??
-          renderSnippetAsPoints(entry.content ?? entry.snippet ?? "")}
+        {entry.title && <h3 className={styles.socialTitle}>{entry.title}</h3>}
+        <p className={styles.socialText}>{entry.content}</p>
+
+        {entry.tags.length > 0 && (
+          <div className={styles.tagContainer}>
+            {entry.tags.map((tag) => (
+              <span key={tag} className={styles.tagBadge}>
+                #{tag}
+              </span>
+            ))}
+          </div>
+        )}
+        <span className={styles.timestampInline}>{entry.relativeDate}</span>
       </div>
 
+      {/* Action tray */}
       <div className={styles.cardFooter}>
         <div className={styles.actionGroup}>
           <div className={styles.voteItem}>
@@ -228,9 +209,7 @@ export default function FeedCard({ entry }: FeedCardProps) {
             >
               <ArrowUp size={18} strokeWidth={2.2} />
             </button>
-            <span
-              className={`${styles.voteCount} ${userVote === "up" ? styles.activeUpText : ""}`}
-            >
+            <span className={`${styles.voteCount} ${userVote === "up" ? styles.activeUpText : ""}`}>
               {upCount}
             </span>
           </div>
@@ -245,9 +224,7 @@ export default function FeedCard({ entry }: FeedCardProps) {
             >
               <ArrowDown size={18} strokeWidth={2.2} />
             </button>
-            <span
-              className={`${styles.voteCount} ${userVote === "down" ? styles.activeDownText : ""}`}
-            >
+            <span className={`${styles.voteCount} ${userVote === "down" ? styles.activeDownText : ""}`}>
               {downCount}
             </span>
           </div>
@@ -285,99 +262,13 @@ export default function FeedCard({ entry }: FeedCardProps) {
             aria-label={copied ? "Link copied" : "Copy link"}
           >
             {copied ? (
-              <Check
-                size={18}
-                strokeWidth={2.2}
-                className={styles.copiedIcon || ""}
-              />
+              <Check size={18} strokeWidth={2.2} className={styles.copiedIcon || ""} />
             ) : (
-              <Link size={18} strokeWidth={2.2} />
+              <LinkIcon size={18} strokeWidth={2.2} />
             )}
           </button>
         </div>
       </div>
     </div>
-  );
-}
-
-function renderTemplatePreview(
-  templateType?: string,
-  fields?: Record<string, string | string[] | boolean | null | undefined>,
-) {
-  if (!templateType || !fields) return null;
-  if (!(templateType in ALL_TEMPLATES)) return null;
-
-  const template = getTemplate(templateType as TemplateType);
-  const rows = template.fields
-    .map((field) => {
-      const raw = fields[field.name];
-      const valueText = toText(raw).trim();
-      if (!valueText) return null;
-      return {
-        label: field.label,
-        value: truncate(valueText, 140),
-      };
-    })
-    .filter(Boolean)
-    .slice(0, 3) as { label: string; value: string }[];
-
-  if (rows.length === 0) return null;
-
-  return (
-    <div className={styles.previewList}>
-      {rows.map((row) => (
-        <div key={row.label} className={styles.previewRow}>
-          <span className={styles.previewLabel}>{row.label}</span>
-          <span className={styles.previewValue}>{row.value}</span>
-        </div>
-      ))}
-    </div>
-  );
-}
-
-function toText(value: unknown): string {
-  if (Array.isArray(value)) return value.join(", ");
-  if (typeof value === "boolean") return value ? "Yes" : "No";
-  if (value === null || value === undefined) return "";
-  return String(value);
-}
-
-function truncate(text: string, max: number): string {
-  if (text.length <= max) return text;
-  return `${text.slice(0, max).trimEnd()}...`;
-}
-
-function renderSnippetAsPoints(snippet: string) {
-  if (!snippet || snippet.trim().length === 0) return null;
-
-  // Heuristics: if it contains newlines or list markers, render as points
-  const looksLikeList = /\n|^\s*[-*+]\s|^\s*\d+\./m.test(snippet) || /#{1,6}\s/.test(snippet);
-
-  if (!looksLikeList) {
-    return <p className={styles.cardSnippet}>{snippet}</p>;
-  }
-
-  // Split into meaningful lines
-  const rawLines = snippet.split(/\n+/).map((l) => l.trim()).filter(Boolean);
-  const items: string[] = [];
-
-  rawLines.forEach((line) => {
-    // Remove markdown heading markers
-    const headingMatch = line.replace(/^#{1,6}\s+/, "");
-    // Remove list markers like '- ', '* ', '1. '
-    const cleaned = headingMatch.replace(/^[-*+\s]*\d*\.?\s*/, "").trim();
-    if (cleaned.length > 0) items.push(cleaned);
-  });
-
-  if (items.length <= 1) {
-    return <p className={styles.cardSnippet}>{snippet}</p>;
-  }
-
-  return (
-    <ul className={styles.pointsList}>
-      {items.map((it, idx) => (
-        <li key={idx} className={styles.pointItem}>{it}</li>
-      ))}
-    </ul>
   );
 }

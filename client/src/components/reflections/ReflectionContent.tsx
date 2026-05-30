@@ -4,6 +4,7 @@ import ReactMarkdown from 'react-markdown';
 import type { ReactNode } from 'react';
 import { AlertCircle } from 'lucide-react';
 import { getTemplate, TemplateType } from '@/lib/templateDefinitions';
+import styles from './ReflectionContent.module.css';
 
 type ReflectionFields = Record<string, string | string[] | boolean | null | undefined>;
 
@@ -72,9 +73,9 @@ function renderValue(value: ReflectionFields[keyof ReflectionFields], condensed:
 
   if (Array.isArray(value)) {
     return (
-      <ul style={{ margin: '0 0 0 18px', padding: 0, display: 'flex', flexDirection: 'column', gap: 6 }}>
+      <ul className={styles.list}>
         {value.map((item) => (
-          <li key={String(item)} style={{ lineHeight: 1.7 }}>
+          <li key={String(item)} className={styles.listItem}>
             {String(item)}
           </li>
         ))}
@@ -116,36 +117,15 @@ function renderSection(
   const displayText = toText(value).trim();
 
   return (
-    <div style={{
-      padding: '14px 16px',
-      borderRadius: 14,
-      border: '1px solid var(--border)',
-      background: '#fff',
-    }}>
-      <p
-        style={{
-          fontSize: 10,
-          fontFamily: 'var(--mono)',
-          color: 'var(--muted)',
-          textTransform: 'uppercase',
-          letterSpacing: '0.08em',
-          marginBottom: 8,
-        }}
-      >
+    <div className={styles.section}>
+      <p className={styles.label}>
         {label}
       </p>
-      <div
-        style={{
-          fontSize: 14,
-          color: 'var(--ink)',
-          lineHeight: 1.7,
-          whiteSpace: 'pre-wrap',
-        }}
-      >
+      <div className={styles.value}>
         {displayText.length > 0 ? (
           renderValue(value, condensed)
         ) : (
-          required ? <span style={{ color: 'var(--muted)', fontStyle: 'italic' }}>Not provided</span> : null
+          required ? <span className={styles.condensedPlaceholder}>Not provided</span> : null
         )}
       </div>
     </div>
@@ -162,11 +142,11 @@ function renderTemplateLayout(
   switch (templateType) {
     case 'design_decision':
       return (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+        <div className={styles.templateWrapper}>
           {renderSection('What triggered this decision', fields.what_triggered, condensed, true)}
           {renderSection('Alternatives considered', fields.alternatives_considered, condensed, true)}
           {renderSection('Reasoning', fields.reasoning, condensed, true)}
-          <div style={{ display: 'grid', gap: 12, gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))' }}>
+          <div className={styles.grid}>
             {renderSection('Constraints', fields.constraints, condensed)}
             {renderSection('Revisit condition', fields.revisit_condition, condensed)}
           </div>
@@ -174,11 +154,11 @@ function renderTemplateLayout(
       );
     case 'technical_challenge':
       return (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+        <div className={styles.templateWrapper}>
           {renderSection('What broke', fields.what_broke, condensed, true)}
           {renderSection('What you tried', fields.what_tried, condensed, true)}
           {renderSection('What worked', fields.what_worked, condensed, true)}
-          <div style={{ display: 'grid', gap: 12, gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))' }}>
+          <div className={styles.grid}>
             {renderSection('Root cause', fields.root_cause, condensed, true)}
             {renderSection('Confidence', fields.confidence, condensed, true)}
           </div>
@@ -186,10 +166,10 @@ function renderTemplateLayout(
       );
     case 'tradeoff':
       return (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+        <div className={styles.templateWrapper}>
           {renderSection('What you gained', fields.gained, condensed, true)}
           {renderSection('What you gave up', fields.gave_up, condensed, true)}
-          <div style={{ display: 'grid', gap: 12, gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))' }}>
+          <div className={styles.grid}>
             {renderSection('Constraints', fields.constraints, condensed)}
             {renderSection('Revisit when', fields.revisit_when, condensed)}
             {renderSection('Risk level', fields.risk_level, condensed, true)}
@@ -198,10 +178,10 @@ function renderTemplateLayout(
       );
     case 'lesson_learned':
       return (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+        <div className={styles.templateWrapper}>
           {renderSection('What happened', fields.what_happened, condensed, true)}
           {renderSection('Assumption vs reality', fields.assumption_vs_reality, condensed, true)}
-          <div style={{ display: 'grid', gap: 12, gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))' }}>
+          <div className={styles.grid}>
             {renderSection('Rule of thumb', fields.rule_of_thumb, condensed, true)}
             {renderSection('Who should know', fields.who_should_know, condensed)}
           </div>
@@ -209,11 +189,11 @@ function renderTemplateLayout(
       );
     case 'bug_autopsy':
       return (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+        <div className={styles.templateWrapper}>
           {renderSection('Symptoms', fields.symptoms, condensed, true)}
           {renderSection('Ruled out', fields.ruled_out, condensed, true)}
           {renderSection('Fix', fields.fix, condensed, true)}
-          <div style={{ display: 'grid', gap: 12, gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))' }}>
+          <div className={styles.grid}>
             {renderSection('Root cause', fields.root_cause, condensed, true)}
             {renderSection('Confidence', fields.confidence, condensed, true)}
           </div>
@@ -221,11 +201,11 @@ function renderTemplateLayout(
       );
     case 'integration_note':
       return (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+        <div className={styles.templateWrapper}>
           {renderSection('The gotcha', fields.the_gotcha, condensed, true)}
           {renderSection('How you discovered it', fields.how_discovered, condensed, true)}
           {renderSection('Fix or workaround', fields.fix_or_workaround, condensed, true)}
-          <div style={{ display: 'grid', gap: 12, gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))' }}>
+          <div className={styles.grid}>
             {renderSection('Is it documented?', fields.is_documented, condensed, true)}
             {renderSection('Version affected', fields.version_affected, condensed)}
           </div>

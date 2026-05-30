@@ -1,0 +1,59 @@
+/* Styles for structured reflection content */
+.section {
+  padding: 14px 16px;
+  border-radius: 14px;
+  border: 1px solid var(--border);
+  background: #fff;
+}
+
+.label {
+  font-size: 10px;
+  font-family: var(--mono);
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  margin-bottom: 8px;
+}
+
+.value {
+  font-size: 14px;
+  color: var(--ink);
+  line-height: 1.7;
+  white-space: pre-wrap;
+}
+
+.list {
+  margin: 0 0 0 18px;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  list-style: disc;
+}
+
+.listItem {
+  line-height: 1.7;
+}
+
+.grid {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+}
+
+.templateColumn {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.condensedPlaceholder {
+  color: var(--muted);
+  font-style: italic;
+}
+
+.templateWrapper {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}

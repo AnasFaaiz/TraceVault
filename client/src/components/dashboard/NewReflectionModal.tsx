@@ -138,9 +138,12 @@ export default function NewReflectionModal({
     const fetchProjects = useCallback(async () => {
         try {
             const res = await api.get('/projects');
-            setProjects(res.data);
-            if (!preSelectedProjectId && !initialData && res.data.length > 0) {
-                setFormData(prev => ({ ...prev, projectId: res.data[0].id }));
+            const projectList = Array.isArray(res.data)
+                ? res.data
+                : res.data?.projects || [];
+            setProjects(projectList);
+            if (!preSelectedProjectId && !initialData && projectList.length > 0) {
+                setFormData(prev => ({ ...prev, projectId: projectList[0].id }));
             }
         } catch (err) {
             console.error('Failed to fetch projects', err);

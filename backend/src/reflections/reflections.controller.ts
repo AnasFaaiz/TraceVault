@@ -20,8 +20,7 @@ export class ReflectionsController {
   constructor(private reflectionsService: ReflectionsService) {}
 
   /**
-   * Create a new reflection with structured fields
-   * Supports both new format (category/fields) and legacy format (type/content)
+   * Create a new reflection or social update
    */
   @UseGuards(JwtAuthGuard)
   @Post()
@@ -31,21 +30,27 @@ export class ReflectionsController {
     body: {
       projectId: string;
       title: string;
-      category?: string; // New format
-      template_type?: string; // New format
-      fields?: Record<string, any>; // New format
-      tags?: string[]; // New format
-      type?: string; // Legacy format
-      content?: string; // Legacy format
+      entryType?: 'reflection' | 'social_post';
+      category?: string;
+      template_type?: string;
+      fields?: Record<string, any>;
+      tags?: string[];
+      type?: string;
+      content?: string;
       impact?: string;
       tools?: string[];
     },
   ) {
-    // Support both new and legacy formats
-    const category = body.category || body.type;
-    const template_type = body.template_type || body.category || body.type;
+    const entryType =
+      body.entryType ||
+      (body.category === 'social_post' ? 'social_post' : 'reflection');
+    let category = body.category || body.type;
+    let template_type = body.template_type || body.category || body.type;
 
-    if (!category || !template_type) {
+    if (entryType === 'social_post') {
+      category = category || 'social_post';
+      template_type = template_type || 'social_post';
+    } else if (!category || !template_type) {
       throw new BadRequestException('category and template_type are required');
     }
 
@@ -54,19 +59,17 @@ export class ReflectionsController {
       body.projectId,
       {
         title: body.title,
+        entryType,
         category,
         template_type,
-        fields: body.fields,
+        fields: body.fields || {},
         tags: body.tags || [],
-        content: body.content, // Legacy
+        content: body.content,
         impact: body.impact || 'minor',
       },
     );
   }
 
-  /**
-   * Get recent reflections for the current user
-   */
   @UseGuards(JwtAuthGuard)
   @Get('recent')
   getRecent(
@@ -79,17 +82,11 @@ export class ReflectionsController {
     );
   }
 
-  /**
-   * Get global feed of all reflections
-   */
   @Get('feed')
   getFeed(@Query('limit') limit?: string) {
     return this.reflectionsService.getGlobalFeed(limit ? parseInt(limit) : 20);
   }
 
-  /**
-   * Get reflections for a specific project
-   */
   @UseGuards(JwtAuthGuard)
   @Get('project/:projectId')
   getProjectReflections(
@@ -102,17 +99,13 @@ export class ReflectionsController {
     );
   }
 
-  /**
-   * Search reflections with filters
-   * Supports both 'type' (legacy) and 'category' (new) query params
-   */
   @UseGuards(JwtAuthGuard)
   @Get('search')
   search(
     @Req() req: { user: { userId: string } },
     @Query('q') q?: string,
-    @Query('type') type?: string, // Legacy
-    @Query('category') category?: string, // New
+    @Query('type') type?: string,
+    @Query('category') category?: string,
     @Query('impact') impact?: string,
     @Query('projectId') projectId?: string,
     @Query('scope') scope: 'personal' | 'global' = 'personal',
@@ -128,37 +121,27 @@ export class ReflectionsController {
     });
   }
 
-  /**
-   * Get dynamic trending entries for a selected period.
-   */
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(OptionalJwtAuthGuard)
   @Get('trending')
   getTrending(
-    @Req() req: { user: { userId: string } },
+    @Req() req: { user?: { userId: string } },
     @Query('period') period: '24h' | '7d' | '30d' = '24h',
     @Query('limit') limit?: string,
   ) {
     return this.reflectionsService.getTrending(
-      req.user.userId,
+      req.user?.userId,
       period,
       limit ? parseInt(limit) : 5,
     );
   }
 
-  /**
-   * Get single reflection by ID
-   */
   @UseGuards(OptionalJwtAuthGuard)
   @Get(':id')
   getReflection(@Param('id') id: string, @Req() req: any) {
-    // If user is logged in, pass userId, else undefined (public view)
     const userId = req.user?.userId;
     return this.reflectionsService.getReflectionById(userId, id);
   }
 
-  /**
-   * Get related reflections within the same project
-   */
   @UseGuards(OptionalJwtAuthGuard)
   @Get(':id/related')
   getRelated(
@@ -174,10 +157,6 @@ export class ReflectionsController {
     );
   }
 
-  /**
-   * Update an existing reflection
-   * Supports both new format (category/fields) and legacy format (type/content)
-   */
   @UseGuards(JwtAuthGuard)
   @Patch(':id')
   updateReflection(
@@ -186,18 +165,20 @@ export class ReflectionsController {
     @Body()
     body: {
       title?: string;
-      category?: string; // New format
-      template_type?: string; // New format
-      fields?: Record<string, any>; // New format
-      tags?: string[]; // New format
-      type?: string; // Legacy format
-      content?: string; // Legacy format
+      entryType?: 'reflection' | 'social_post';
+      category?: string;
+      template_type?: string;
+      fields?: Record<string, any>;
+      tags?: string[];
+      type?: string;
+      content?: string;
       impact?: string;
       tools?: string[];
     },
   ) {
     return this.reflectionsService.updateReflection(req.user.userId, id, {
       title: body.title,
+      entryType: body.entryType,
       category: body.category || body.type,
       template_type: body.template_type,
       fields: body.fields,
@@ -207,9 +188,6 @@ export class ReflectionsController {
     });
   }
 
-  /**
-   * Delete a reflection
-   */
   @UseGuards(JwtAuthGuard)
   @Delete(':id')
   deleteReflection(
@@ -219,9 +197,6 @@ export class ReflectionsController {
     return this.reflectionsService.deleteReflection(req.user.userId, id);
   }
 
-  /**
-   * Get personalized feed with view options (For You, From Your Stack, Trending)
-   */
   @UseGuards(JwtAuthGuard)
   @Get('feed/personalized')
   async getPersonalizedFeed(
@@ -253,9 +228,22 @@ export class ReflectionsController {
     );
   }
 
-  /**
-   * Get all unique tags
-   */
+  @Get('tags/top')
+  async getTopTags(@Query('limit') limit?: string) {
+    return this.reflectionsService.getTopTags(limit ? parseInt(limit) : 12);
+  }
+
+  @Get('contributors')
+  async getTopContributors(
+    @Query('period') period: '24h' | '7d' | '30d' | 'all' = '30d',
+    @Query('limit') limit?: string,
+  ) {
+    return this.reflectionsService.getTopContributors(
+      period,
+      limit ? parseInt(limit) : 6,
+    );
+  }
+
   @Get('tags')
   async getTags(@Query('search') search?: string) {
     const allTags = await this.reflectionsService.getAllTags();
@@ -268,9 +256,6 @@ export class ReflectionsController {
     return allTags;
   }
 
-  /**
-   * Get reaction counts for an entry (no auth required)
-   */
   @Get(':id/reactions')
   async getReactions(
     @Param('id') entryId: string,
@@ -282,9 +267,6 @@ export class ReflectionsController {
     );
   }
 
-  /**
-   * Add or toggle a reaction on an entry
-   */
   @UseGuards(JwtAuthGuard)
   @Post(':id/reactions')
   async toggleReaction(
@@ -299,9 +281,6 @@ export class ReflectionsController {
     );
   }
 
-  /**
-   * Toggle vault for an entry
-   */
   @UseGuards(JwtAuthGuard)
   @Post(':id/vault')
   async toggleVault(
@@ -311,9 +290,6 @@ export class ReflectionsController {
     return this.reflectionsService.toggleVault(entryId, req.user.userId);
   }
 
-  /**
-   * Get vault status for an entry (auth required)
-   */
   @UseGuards(JwtAuthGuard)
   @Get(':id/vault-status')
   async getVaultStatus(
@@ -327,9 +303,6 @@ export class ReflectionsController {
     return { vaulted };
   }
 
-  /**
-   * Get user's vaulted entries
-   */
   @UseGuards(JwtAuthGuard)
   @Get('vault/list')
   async getVaultedEntries(

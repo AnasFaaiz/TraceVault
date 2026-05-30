@@ -1,15 +1,16 @@
-'use client';
+"use client";
 
-import { useEffect, useMemo, useState } from 'react';
-import Link from 'next/link';
-import { useRouter } from 'next/navigation';
-import { BookmarkPlus, Pencil, Trash2, Loader2 } from 'lucide-react';
-import api from '@/lib/api';
-import { useAuthStore } from '@/store/useAuthStore';
-import ReactionButtons from '@/components/feed/ReactionButtons';
-import VaultButton from '@/components/feed/VaultButton';
-import ShareButton from '@/components/feed/ShareButton';
-import AddToCollectionPopover from '@/app/projects/_components/AddToCollectionPopover';
+import { useEffect, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
+import {
+  Pencil,
+  Trash2,
+  BookmarkPlus,
+  Bookmark,
+  FolderPlus,
+} from "lucide-react";
+import api from "@/lib/api";
+import Toast, { ToastType } from "@/components/Toast";
 
 interface ReflectionDetail {
   id: string;
@@ -22,367 +23,742 @@ interface ReflectionDetail {
   content?: string | null;
   userId: string;
   projectId: string;
-  createdAt?: string;
 }
 
-interface ReactionCounts {
-  useful: { count: number; reacted: boolean };
-  critical: { count: number; reacted: boolean };
-  applied: { count: number; reacted: boolean };
+interface RelatedReflection {
+  id: string;
+  title: string;
+  category: string;
+  template_type?: string;
 }
 
-const EMPTY_REACTIONS: ReactionCounts = {
-  useful: { count: 0, reacted: false },
-  critical: { count: 0, reacted: false },
-  applied: { count: 0, reacted: false },
-};
+interface ReactionCount {
+  type: ReactionType;
+  count: number;
+}
+
+type ReactionType = "useful" | "felt_this" | "critical" | "noted";
+
+const REACTIONS: { type: ReactionType; emoji: string; label: string }[] = [
+  { type: "useful", emoji: "💡", label: "Useful" },
+  { type: "felt_this", emoji: "😅", label: "Felt this" },
+  { type: "critical", emoji: "🔥", label: "Critical" },
+  { type: "noted", emoji: "🔩", label: "Noted" },
+];
 
 const TEMPLATE_LABELS: Record<string, string> = {
-  design_decision: 'Design Decision',
-  technical_challenge: 'Technical Challenge',
-  tradeoff: 'Tradeoff',
-  lesson_learned: 'Lesson Learned',
-  bug_autopsy: 'Bug Autopsy',
-  integration_note: 'Integration Note',
+  design_decision: "Design Decision",
+  technical_challenge: "Technical Challenge",
+  tradeoff: "Tradeoff",
+  lesson_learned: "Lesson Learned",
+  bug_autopsy: "Bug Autopsy",
+  integration_note: "Integration Note",
 };
 
-export default function ReflectionDetailClient({ reflection }: { reflection: ReflectionDetail }) {
+function getTemplateLabel(category: string, templateType?: string): string {
+  return TEMPLATE_LABELS[templateType || category] || category;
+}
+
+interface Props {
+  reflection: ReflectionDetail;
+  /**
+   * "actions"       — icon-only Edit + Delete, rendered inline with header badges
+   * "bottom-actions"— reactions row + vault/collection buttons, below main content card
+   * "sidebar"       — "More from this project" panel
+   */
+  variant: "actions" | "bottom-actions" | "sidebar";
+}
+
+export default function ReflectionDetailClient({ reflection, variant }: Props) {
   const router = useRouter();
-  const user = useAuthStore((state) => state.user);
-  const isOwner = user?.id === reflection.userId;
+  const [toast, setToast] = useState<{
+    message: string;
+    type: ToastType;
+  } | null>(null);
 
-  const [reactions, setReactions] = useState<ReactionCounts>(EMPTY_REACTIONS);
-  const [vaulted, setVaulted] = useState(false);
-  const [isLoadingReactions, setIsLoadingReactions] = useState(true);
-  const [isLoadingVault, setIsLoadingVault] = useState(false);
-  const [showCollections, setShowCollections] = useState(false);
-  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  // ── Edit / Delete ─────────────────────────────────────────────────────────
   const [isDeleting, setIsDeleting] = useState(false);
-  const [relatedEntries, setRelatedEntries] = useState<ReflectionDetail[]>([]);
 
+  // ── Vault ─────────────────────────────────────────────────────────────────
+  const [isVaulted, setIsVaulted] = useState(false);
+  const [isVaulting, setIsVaulting] = useState(false);
+
+  // ── Add to collection ─────────────────────────────────────────────────────
+  const [isAddingToCollection, setIsAddingToCollection] = useState(false);
+
+  // ── Reactions ─────────────────────────────────────────────────────────────
+  const [myReaction, setMyReaction] = useState<ReactionType | null>(null);
+  const [reactionCounts, setReactionCounts] = useState<
+    Record<ReactionType, number>
+  >({
+    useful: 0,
+    felt_this: 0,
+    critical: 0,
+    noted: 0,
+  });
+  const [pickerOpen, setPickerOpen] = useState(false);
+  const [isReacting, setIsReacting] = useState(false);
+  const pickerRef = useRef<HTMLDivElement>(null);
+
+  // ── Related ───────────────────────────────────────────────────────────────
+  const [related, setRelated] = useState<RelatedReflection[]>([]);
+  const [loadingRelated, setLoadingRelated] = useState(false);
+
+  // ── Data fetching ─────────────────────────────────────────────────────────
   useEffect(() => {
+    if (variant !== "bottom-actions") return;
     let isActive = true;
-    const fetchReactions = async () => {
+
+    const fetchBottomData = async () => {
+      // Vault status
       try {
-        const response = await api.get<ReactionCounts>(`/reflections/${reflection.id}/reactions`);
-        if (isActive) {
-          setReactions(response.data);
-        }
-      } catch (error) {
-        console.error('Failed to fetch reactions', error);
-      } finally {
-        if (isActive) {
-          setIsLoadingReactions(false);
-        }
+        const res = await api.get<{ vaulted: boolean }>(
+          `/vault/status/${reflection.id}`,
+        );
+        if (isActive) setIsVaulted(res.data?.vaulted ?? false);
+      } catch {
+        /* not vaulted */
       }
-    };
 
-    fetchReactions();
-    return () => {
-      isActive = false;
-    };
-  }, [reflection.id]);
-
-  useEffect(() => {
-    let isActive = true;
-
-    if (!user) {
-      setVaulted(false);
-      return;
-    }
-
-    const fetchVaultStatus = async () => {
-      setIsLoadingVault(true);
+      // Reaction counts + my reaction
       try {
-        const response = await api.get<{ vaulted: boolean }>(`/reflections/${reflection.id}/vault-status`);
+        const res = await api.get<{
+          counts: ReactionCount[];
+          myReaction: ReactionType | null;
+        }>(`/reflections/${reflection.id}/reactions`);
         if (isActive) {
-          setVaulted(response.data.vaulted);
+          const counts: Record<ReactionType, number> = {
+            useful: 0,
+            felt_this: 0,
+            critical: 0,
+            noted: 0,
+          };
+          res.data?.counts?.forEach(({ type, count }) => {
+            counts[type] = count;
+          });
+          setReactionCounts(counts);
+          setMyReaction(res.data?.myReaction ?? null);
         }
       } catch {
-        setVaulted(false);
-      } finally {
-        if (isActive) {
-          setIsLoadingVault(false);
-        }
+        /* no reactions yet */
       }
     };
 
-    fetchVaultStatus();
+    fetchBottomData();
     return () => {
       isActive = false;
     };
-  }, [reflection.id, user]);
+  }, [variant, reflection.id]);
 
   useEffect(() => {
+    if (variant !== "sidebar" || !reflection.projectId) return;
     let isActive = true;
+    setLoadingRelated(true);
 
     const fetchRelated = async () => {
       try {
-        const response = await api.get(`/reflections/${reflection.id}/related`, {
-          params: { limit: 4 },
-        });
-        const entries = response.data?.entries || [];
-        if (isActive) {
-          setRelatedEntries(entries);
-        }
-      } catch (error) {
-        console.error('Failed to fetch related entries', error);
+        const res = await api.get<RelatedReflection[]>(
+          `/projects/${reflection.projectId}/reflections?exclude=${reflection.id}&limit=5`,
+        );
+        if (isActive) setRelated(res.data || []);
+      } catch {
+        /* ignore */
+      } finally {
+        if (isActive) setLoadingRelated(false);
       }
     };
 
     fetchRelated();
-
     return () => {
       isActive = false;
     };
-  }, [reflection.id]);
+  }, [variant, reflection.projectId, reflection.id]);
+
+  // Close picker on outside click
+  useEffect(() => {
+    if (!pickerOpen) return;
+    const handler = (e: MouseEvent) => {
+      if (pickerRef.current && !pickerRef.current.contains(e.target as Node)) {
+        setPickerOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [pickerOpen]);
+
+  // ── Handlers ──────────────────────────────────────────────────────────────
+
+  const handleEdit = () => router.push(`/reflections/${reflection.id}/edit`);
 
   const handleDelete = async () => {
-    if (isDeleting) return;
+    const confirmed = window.confirm(
+      "Delete this reflection? This action cannot be undone.",
+    );
+    if (!confirmed) return;
     setIsDeleting(true);
-
     try {
       await api.delete(`/reflections/${reflection.id}`);
       router.push(`/projects/${reflection.projectId}`);
-    } catch (error) {
-      console.error('Failed to delete reflection', error);
+    } catch {
+      setToast({
+        message: "Failed to delete this reflection. Please try again.",
+        type: "error",
+      });
       setIsDeleting(false);
     }
   };
 
-  const relatedLabel = useMemo(() => {
-    return relatedEntries.length > 0 ? 'More from this project' : 'No other entries yet';
-  }, [relatedEntries.length]);
+  const handleReact = async (type: ReactionType) => {
+    if (isReacting) return;
+    setPickerOpen(false);
+    setIsReacting(true);
 
-  return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
-      <div style={{
-        display: 'flex',
-        flexWrap: 'wrap',
-        gap: 12,
-        alignItems: 'center',
-        borderTop: '1px solid var(--border)',
-        paddingTop: 20,
-      }}>
-        {isLoadingReactions ? (
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, color: 'var(--muted)' }}>
-            <Loader2 className="animate-spin" size={14} /> Loading reactions
-          </div>
-        ) : (
-          <ReactionButtons entryId={reflection.id} counts={reactions} onReactionChange={setReactions} />
-        )}
+    const prev = myReaction;
+    const prevCounts = { ...reactionCounts };
 
-        <div style={{ display: 'flex', gap: 10, marginLeft: 'auto', flexWrap: 'wrap' }}>
-          <VaultButton entryId={reflection.id} vaulted={vaulted} onVaultChange={setVaulted} />
-          <ShareButton entryId={reflection.id} />
-        </div>
-      </div>
+    // Optimistic update
+    const updated = { ...reactionCounts };
+    if (prev === type) {
+      // toggle off
+      updated[type] = Math.max(0, updated[type] - 1);
+      setMyReaction(null);
+    } else {
+      if (prev) updated[prev] = Math.max(0, updated[prev] - 1);
+      updated[type] += 1;
+      setMyReaction(type);
+    }
+    setReactionCounts(updated);
 
-      <div style={{
-        display: 'flex',
-        flexWrap: 'wrap',
-        gap: 10,
-        alignItems: 'center',
-        justifyContent: 'space-between',
-      }}>
-        <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
-          {user && (
-            <div style={{ position: 'relative' }}>
-              <button
-                type="button"
-                onClick={() => setShowCollections((prev) => !prev)}
-                style={{
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: 8,
-                  padding: '8px 14px',
-                  borderRadius: 999,
-                  border: '1px solid var(--border)',
-                  background: '#fff',
-                  fontSize: 13,
-                  fontWeight: 600,
-                  color: 'var(--ink)',
-                  cursor: 'pointer',
-                }}
-              >
-                <BookmarkPlus size={16} /> Add to collection
-              </button>
-              {showCollections && (
-                <AddToCollectionPopover entryId={reflection.id} onClose={() => setShowCollections(false)} />
-              )}
-            </div>
-          )}
-        </div>
+    try {
+      if (prev === type) {
+        await api.delete(`/reflections/${reflection.id}/reactions`);
+      } else {
+        await api.post(`/reflections/${reflection.id}/reactions`, { type });
+      }
+    } catch {
+      // Revert on failure
+      setReactionCounts(prevCounts);
+      setMyReaction(prev);
+      setToast({
+        message: "Could not save reaction. Try again.",
+        type: "error",
+      });
+    } finally {
+      setIsReacting(false);
+    }
+  };
 
-        {isOwner && (
-          <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
-            <Link
-              href={`/reflections/${reflection.id}/edit`}
-              style={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: 8,
-                padding: '8px 14px',
-                borderRadius: 999,
-                border: '1px solid var(--border)',
-                background: '#f5f2eb',
-                fontSize: 13,
-                fontWeight: 600,
-                color: 'var(--ink)',
-                textDecoration: 'none',
-              }}
-            >
-              <Pencil size={14} /> Edit
-            </Link>
+  const handleVault = async () => {
+    setIsVaulting(true);
+    try {
+      if (isVaulted) {
+        await api.delete(`/vault/${reflection.id}`);
+        setIsVaulted(false);
+        setToast({ message: "Removed from vault.", type: "success" });
+      } else {
+        await api.post(`/vault`, { reflectionId: reflection.id });
+        setIsVaulted(true);
+        setToast({ message: "Saved to vault!", type: "success" });
+      }
+    } catch {
+      setToast({
+        message: "Could not update vault. Try again.",
+        type: "error",
+      });
+    } finally {
+      setIsVaulting(false);
+    }
+  };
 
-            <button
-              type="button"
-              onClick={() => setShowDeleteConfirm(true)}
-              style={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: 8,
-                padding: '8px 14px',
-                borderRadius: 999,
-                border: '1px solid #f1c4c4',
-                background: '#fff5f5',
-                fontSize: 13,
-                fontWeight: 600,
-                color: '#b91c1c',
-                cursor: 'pointer',
-              }}
-            >
-              <Trash2 size={14} /> Delete
-            </button>
-          </div>
-        )}
-      </div>
+  const handleAddToCollection = async () => {
+    // Replace this prompt with your real collection picker modal if you have one
+    const collectionId = window.prompt("Enter collection ID:");
+    if (!collectionId?.trim()) return;
+    setIsAddingToCollection(true);
+    try {
+      await api.post(`/collections/${collectionId}/reflections`, {
+        reflectionId: reflection.id,
+      });
+      setToast({ message: "Added to collection!", type: "success" });
+    } catch {
+      setToast({
+        message: "Could not add to collection. Try again.",
+        type: "error",
+      });
+    } finally {
+      setIsAddingToCollection(false);
+    }
+  };
 
-      {relatedLabel && (
-        <div style={{
-          borderTop: '1px dashed var(--border)',
-          paddingTop: 18,
-          display: 'flex',
-          flexDirection: 'column',
-          gap: 10,
-        }}>
-          <p style={{
-            fontSize: 11,
-            fontFamily: 'var(--mono)',
-            textTransform: 'uppercase',
-            letterSpacing: '0.08em',
-            color: 'var(--muted)',
-          }}>
-            {relatedLabel}
-          </p>
+  // ── Shared styles ─────────────────────────────────────────────────────────
 
-          {relatedEntries.length > 0 && (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-              {relatedEntries.map((entry) => (
-                <Link
-                  key={entry.id}
-                  href={`/reflections/${entry.id}`}
-                  style={{
-                    display: 'flex',
-                    justifyContent: 'space-between',
-                    alignItems: 'center',
-                    padding: '10px 12px',
-                    borderRadius: 12,
-                    border: '1px solid var(--border)',
-                    background: '#fff',
-                    textDecoration: 'none',
-                    color: 'var(--ink)',
-                  }}
-                >
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-                    <span style={{ fontSize: 14, fontWeight: 600 }}>{entry.title}</span>
-                    <span style={{ fontSize: 11, color: 'var(--muted)' }}>
-                      {TEMPLATE_LABELS[entry.template_type || entry.category] || entry.category}
-                    </span>
-                  </div>
-                  <span style={{ fontSize: 11, color: 'var(--muted)' }}>
-                    Open
-                  </span>
-                </Link>
-              ))}
-            </div>
-          )}
-        </div>
-      )}
+  const iconBtnBase: React.CSSProperties = {
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    width: 32,
+    height: 32,
+    borderRadius: 8,
+    background: "transparent",
+    cursor: "pointer",
+    transition: "background 0.15s",
+    flexShrink: 0,
+  };
 
-      {showDeleteConfirm && (
+  const outlineBtnBase: React.CSSProperties = {
+    display: "flex",
+    alignItems: "center",
+    gap: 7,
+    fontSize: 13,
+    fontFamily: "var(--sans, sans-serif)",
+    padding: "8px 14px",
+    borderRadius: 10,
+    border: "1px solid var(--border)",
+    background: "transparent",
+    color: "var(--ink)",
+    cursor: "pointer",
+    transition: "background 0.15s, border-color 0.15s",
+    whiteSpace: "nowrap" as const,
+  };
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // Variant: icon-only Edit + Delete
+  // ─────────────────────────────────────────────────────────────────────────
+  if (variant === "actions") {
+    return (
+      <>
         <div
           style={{
-            position: 'fixed',
-            inset: 0,
-            background: 'rgba(0,0,0,0.4)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            zIndex: 2000,
-            padding: 20,
+            display: "flex",
+            gap: 6,
+            alignItems: "center",
+            flexShrink: 0,
           }}
-          onClick={() => setShowDeleteConfirm(false)}
         >
+          <button
+            onClick={handleEdit}
+            title="Edit reflection"
+            style={{
+              ...iconBtnBase,
+              border: "1px solid var(--border)",
+              color: "var(--ink)",
+            }}
+            onMouseEnter={(e) => {
+              (e.currentTarget as HTMLButtonElement).style.background =
+                "var(--surface, #f5f5f5)";
+            }}
+            onMouseLeave={(e) => {
+              (e.currentTarget as HTMLButtonElement).style.background =
+                "transparent";
+            }}
+          >
+            <Pencil size={14} />
+          </button>
+
+          <button
+            onClick={handleDelete}
+            disabled={isDeleting}
+            title="Delete reflection"
+            style={{
+              ...iconBtnBase,
+              border: "1px solid #fecaca",
+              color: "#dc2626",
+              cursor: isDeleting ? "not-allowed" : "pointer",
+              opacity: isDeleting ? 0.5 : 1,
+            }}
+            onMouseEnter={(e) => {
+              if (!isDeleting)
+                (e.currentTarget as HTMLButtonElement).style.background =
+                  "#fef2f2";
+            }}
+            onMouseLeave={(e) => {
+              (e.currentTarget as HTMLButtonElement).style.background =
+                "transparent";
+            }}
+          >
+            <Trash2 size={14} />
+          </button>
+        </div>
+        {toast && (
+          <Toast
+            message={toast.message}
+            type={toast.type}
+            onClose={() => setToast(null)}
+          />
+        )}
+      </>
+    );
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // Variant: bottom-actions — reactions + vault + add to collection
+  // ─────────────────────────────────────────────────────────────────────────
+  if (variant === "bottom-actions") {
+    const totalReactions = Object.values(reactionCounts).reduce(
+      (a, b) => a + b,
+      0,
+    );
+    const activeReaction = REACTIONS.find((r) => r.type === myReaction);
+
+    return (
+      <>
+        <div
+          style={{
+            marginTop: 2,
+            background: "#fff",
+            borderRadius: "0 0 16px 16px",
+            borderTop: "1px dashed var(--border)",
+            padding: "16px 28px",
+            boxShadow: "0 10px 30px #0001",
+            display: "flex",
+            alignItems: "center",
+            gap: 10,
+            flexWrap: "wrap",
+          }}
+        >
+          {/* ── Reaction picker ── */}
+          <div ref={pickerRef} style={{ position: "relative" }}>
+            {/* Trigger button — shows active reaction or neutral face */}
+            <button
+              onClick={() => setPickerOpen((v) => !v)}
+              title="React to this reflection"
+              style={{
+                ...outlineBtnBase,
+                background: myReaction ? "#f3f0ff" : "transparent",
+                borderColor: myReaction ? "#e2dcff" : "var(--border)",
+                color: myReaction ? "#3b2f63" : "var(--ink)",
+                gap: 6,
+              }}
+              onMouseEnter={(e) => {
+                if (!myReaction)
+                  (e.currentTarget as HTMLButtonElement).style.background =
+                    "var(--surface, #fafafa)";
+              }}
+              onMouseLeave={(e) => {
+                (e.currentTarget as HTMLButtonElement).style.background =
+                  myReaction ? "#f3f0ff" : "transparent";
+              }}
+            >
+              <span style={{ fontSize: 15, lineHeight: 1 }}>
+                {activeReaction ? activeReaction.emoji : "🫥"}
+              </span>
+              <span style={{ fontSize: 13 }}>
+                {activeReaction ? activeReaction.label : "React"}
+              </span>
+              {totalReactions > 0 && (
+                <span
+                  style={{
+                    fontSize: 11,
+                    fontFamily: "var(--mono)",
+                    color: "var(--muted)",
+                    marginLeft: 2,
+                  }}
+                >
+                  {totalReactions}
+                </span>
+              )}
+            </button>
+
+            {/* Hover picker popup */}
+            {pickerOpen && (
+              <div
+                style={{
+                  position: "absolute",
+                  bottom: "calc(100% + 8px)",
+                  left: 0,
+                  background: "#fff",
+                  border: "1px solid var(--border)",
+                  borderRadius: 12,
+                  padding: "6px 8px",
+                  display: "flex",
+                  gap: 4,
+                  boxShadow: "0 8px 24px #0002",
+                  zIndex: 50,
+                  whiteSpace: "nowrap",
+                }}
+              >
+                {REACTIONS.map((r) => (
+                  <button
+                    key={r.type}
+                    onClick={() => handleReact(r.type)}
+                    title={r.label}
+                    style={{
+                      display: "flex",
+                      flexDirection: "column",
+                      alignItems: "center",
+                      gap: 3,
+                      padding: "6px 10px",
+                      borderRadius: 8,
+                      border: "none",
+                      background:
+                        myReaction === r.type ? "#f3f0ff" : "transparent",
+                      cursor: "pointer",
+                      transition: "background 0.12s, transform 0.12s",
+                      outline:
+                        myReaction === r.type ? "1.5px solid #c4b8f5" : "none",
+                    }}
+                    onMouseEnter={(e) => {
+                      const el = e.currentTarget as HTMLButtonElement;
+                      el.style.background =
+                        myReaction === r.type
+                          ? "#ece8ff"
+                          : "var(--surface, #f5f5f5)";
+                      el.style.transform = "scale(1.15)";
+                    }}
+                    onMouseLeave={(e) => {
+                      const el = e.currentTarget as HTMLButtonElement;
+                      el.style.background =
+                        myReaction === r.type ? "#f3f0ff" : "transparent";
+                      el.style.transform = "scale(1)";
+                    }}
+                  >
+                    <span style={{ fontSize: 20, lineHeight: 1 }}>
+                      {r.emoji}
+                    </span>
+                    <span
+                      style={{
+                        fontSize: 10,
+                        color: "var(--muted)",
+                        fontFamily: "var(--mono)",
+                        letterSpacing: "0.04em",
+                      }}
+                    >
+                      {r.label}
+                    </span>
+                    {reactionCounts[r.type] > 0 && (
+                      <span
+                        style={{
+                          fontSize: 10,
+                          color: "var(--muted)",
+                          fontFamily: "var(--mono)",
+                        }}
+                      >
+                        {reactionCounts[r.type]}
+                      </span>
+                    )}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Divider */}
           <div
             style={{
-              width: '100%',
-              maxWidth: 420,
-              background: '#fff',
-              borderRadius: 16,
-              border: '1px solid var(--border)',
-              padding: 24,
-              boxShadow: '0 20px 50px rgba(0,0,0,0.2)',
+              width: 1,
+              height: 20,
+              background: "var(--border)",
+              flexShrink: 0,
             }}
-            onClick={(event) => event.stopPropagation()}
-          >
-            <h3 style={{ fontSize: 18, marginBottom: 10 }}>Delete this entry?</h3>
-            <p style={{ fontSize: 13, color: 'var(--muted)', lineHeight: 1.6, marginBottom: 20 }}>
-              This action cannot be undone. The entry will be removed from your project and vault.
-            </p>
-            <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
-              <button
-                type="button"
-                onClick={() => setShowDeleteConfirm(false)}
-                style={{
-                  padding: '8px 14px',
-                  borderRadius: 10,
-                  border: '1px solid var(--border)',
-                  background: '#fff',
-                  fontSize: 13,
-                  fontWeight: 600,
-                  cursor: 'pointer',
-                }}
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                onClick={handleDelete}
-                disabled={isDeleting}
-                style={{
-                  padding: '8px 14px',
-                  borderRadius: 10,
-                  border: '1px solid #b91c1c',
-                  background: '#b91c1c',
-                  color: '#fff',
-                  fontSize: 13,
-                  fontWeight: 600,
-                  cursor: 'pointer',
-                }}
-              >
-                {isDeleting ? 'Deleting...' : 'Delete entry'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+          />
 
-      {isLoadingVault && (
-        <div style={{ fontSize: 12, color: 'var(--muted)' }}>
-          Syncing vault status...
+          {/* ── Vault it ── */}
+          <button
+            onClick={handleVault}
+            disabled={isVaulting}
+            style={{
+              ...outlineBtnBase,
+              background: isVaulted ? "#f3f0ff" : "transparent",
+              borderColor: isVaulted ? "#e2dcff" : "var(--border)",
+              color: isVaulted ? "#3b2f63" : "var(--ink)",
+              opacity: isVaulting ? 0.6 : 1,
+              cursor: isVaulting ? "not-allowed" : "pointer",
+            }}
+            onMouseEnter={(e) => {
+              if (!isVaulting)
+                (e.currentTarget as HTMLButtonElement).style.background =
+                  isVaulted ? "#ece8ff" : "var(--surface, #fafafa)";
+            }}
+            onMouseLeave={(e) => {
+              (e.currentTarget as HTMLButtonElement).style.background =
+                isVaulted ? "#f3f0ff" : "transparent";
+            }}
+          >
+            {isVaulted ? (
+              <Bookmark size={14} style={{ flexShrink: 0, color: "#3b2f63" }} />
+            ) : (
+              <BookmarkPlus size={14} style={{ flexShrink: 0 }} />
+            )}
+            {isVaulted ? "Vaulted" : "Vault it"}
+          </button>
+
+          {/* ── Add to collection ── */}
+          <button
+            onClick={handleAddToCollection}
+            disabled={isAddingToCollection}
+            style={{
+              ...outlineBtnBase,
+              opacity: isAddingToCollection ? 0.6 : 1,
+              cursor: isAddingToCollection ? "not-allowed" : "pointer",
+            }}
+            onMouseEnter={(e) => {
+              if (!isAddingToCollection)
+                (e.currentTarget as HTMLButtonElement).style.background =
+                  "var(--surface, #fafafa)";
+            }}
+            onMouseLeave={(e) => {
+              (e.currentTarget as HTMLButtonElement).style.background =
+                "transparent";
+            }}
+          >
+            <FolderPlus size={14} style={{ flexShrink: 0 }} />
+            {isAddingToCollection ? "Adding…" : "Add to collection"}
+          </button>
         </div>
+
+        {toast && (
+          <Toast
+            message={toast.message}
+            type={toast.type}
+            onClose={() => setToast(null)}
+          />
+        )}
+      </>
+    );
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // Variant: sidebar — "More from this project" only
+  // ─────────────────────────────────────────────────────────────────────────
+  return (
+    <>
+      <div
+        style={{
+          background: "#fff",
+          borderRadius: 16,
+          padding: "18px 18px",
+          boxShadow: "0 10px 30px #0001",
+        }}
+      >
+        <p
+          style={{
+            fontSize: 10,
+            fontFamily: "var(--mono)",
+            letterSpacing: "0.1em",
+            textTransform: "uppercase",
+            color: "var(--muted)",
+            marginBottom: 14,
+            marginTop: 0,
+          }}
+        >
+          More from this project
+        </p>
+
+        {loadingRelated ? (
+          <div
+            style={{
+              display: "flex",
+              justifyContent: "center",
+              padding: "24px 0",
+            }}
+          >
+            <svg
+              style={{
+                animation: "spin 1s linear infinite",
+                width: 18,
+                height: 18,
+                color: "var(--muted)",
+              }}
+              xmlns="http://www.w3.org/2000/svg"
+              fill="none"
+              viewBox="0 0 24 24"
+            >
+              <style>{`@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }`}</style>
+              <circle
+                cx="12"
+                cy="12"
+                r="10"
+                stroke="currentColor"
+                strokeWidth="3"
+                strokeDasharray="32"
+                strokeDashoffset="12"
+              />
+            </svg>
+          </div>
+        ) : related.length === 0 ? (
+          <p
+            style={{
+              fontSize: 13,
+              color: "var(--muted)",
+              padding: "8px 0",
+              margin: 0,
+            }}
+          >
+            No other reflections in this project yet.
+          </p>
+        ) : (
+          <ul
+            style={{
+              listStyle: "none",
+              margin: 0,
+              padding: 0,
+              display: "flex",
+              flexDirection: "column",
+              gap: 8,
+            }}
+          >
+            {related.map((item) => (
+              <li key={item.id}>
+                <a
+                  href={`/reflections/${item.id}`}
+                  style={{
+                    display: "flex",
+                    flexDirection: "column",
+                    gap: 4,
+                    padding: "10px 14px",
+                    borderRadius: 10,
+                    border: "1px solid var(--border)",
+                    textDecoration: "none",
+                    transition: "background 0.15s, border-color 0.15s",
+                    background: "transparent",
+                  }}
+                  onMouseEnter={(e) => {
+                    const el = e.currentTarget as HTMLAnchorElement;
+                    el.style.background = "var(--surface, #fafafa)";
+                    el.style.borderColor = "var(--border-hover, #d1d5db)";
+                  }}
+                  onMouseLeave={(e) => {
+                    const el = e.currentTarget as HTMLAnchorElement;
+                    el.style.background = "transparent";
+                    el.style.borderColor = "var(--border)";
+                  }}
+                >
+                  <span
+                    style={{
+                      fontSize: 13,
+                      fontFamily: "var(--serif)",
+                      color: "var(--ink)",
+                      lineHeight: 1.4,
+                      fontWeight: 500,
+                    }}
+                  >
+                    {item.title}
+                  </span>
+                  <span
+                    style={{
+                      fontSize: 11,
+                      fontFamily: "var(--mono)",
+                      letterSpacing: "0.06em",
+                      textTransform: "uppercase",
+                      color: "var(--muted)",
+                    }}
+                  >
+                    {getTemplateLabel(item.category, item.template_type)}
+                  </span>
+                </a>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+
+      {toast && (
+        <Toast
+          message={toast.message}
+          type={toast.type}
+          onClose={() => setToast(null)}
+        />
       )}
-    </div>
+    </>
   );
 }

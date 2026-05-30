@@ -76,8 +76,8 @@ export default function AppLayout({ children, title, subtitle, projectId: preSel
                 : 'Search reflections...';
     useEffect(() => {
         if (!_hasHydrated) return;
-        if (!token) { router.push('/login'); }
-    }, [token, router, _hasHydrated]);
+        if (!token && !isFeedPage) { router.push('/login'); }
+    }, [token, router, _hasHydrated, isFeedPage]);
 
     const handleSearch = (e: React.FormEvent) => {
         e.preventDefault();
@@ -101,9 +101,10 @@ export default function AppLayout({ children, title, subtitle, projectId: preSel
         );
     }
 
-    if (!user) return null;
+    // Allow feed page for unauthenticated users; block all others
+    if (!user && !isFeedPage) return null;
 
-    const initials = user.name?.split(' ').map((n: string) => n[0]).join('').toUpperCase().slice(0, 2);
+    const initials = user?.name?.split(' ').map((n: string) => n[0]).join('').toUpperCase().slice(0, 2) ?? '';
 
     const navItems = [
         { id: 'feed', icon: <Globe size={16} />, label: 'Community Feed', href: '/feed' },
@@ -194,37 +195,51 @@ export default function AppLayout({ children, title, subtitle, projectId: preSel
 
                 {/* User + logout */}
                 <div style={{ borderTop: '1px solid var(--border)', paddingTop: 16 }}>
-                    <Link
-                        href={`/u/${user.username}`}
-                        title="View profile"
-                        style={{
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: isSidebarOpen ? 'flex-start' : 'center',
-                            gap: 10,
-                            marginBottom: 12,
-                            padding: isSidebarOpen ? '0' : '2px 0',
-                            borderRadius: 8,
-                            textDecoration: 'none',
-                        }}
-                    >
-                        <div style={{ width: 32, height: 32, borderRadius: '50%', background: '#0e0d0b', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'var(--mono)', fontSize: 12, color: '#f5f2eb', fontWeight: 500, flexShrink: 0 }}>
-                            {initials}
-                        </div>
-                        {isSidebarOpen && (
-                            <div style={{ overflow: 'hidden' }}>
-                                <p style={{ fontSize: 13, fontWeight: 500, color: '#0e0d0b', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{user.name}</p>
-                                <p style={{ fontFamily: 'var(--mono)', fontSize: 10, color: 'var(--muted)' }}>Engineer</p>
-                            </div>
-                        )}
-                    </Link>
-                    <button
-                        onClick={async () => { await logout(); router.push('/login'); }}
-                        title="Sign out"
-                        style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: isSidebarOpen ? 'flex-start' : 'center', gap: 8, padding: '8px 10px', border: 'none', background: 'transparent', cursor: 'pointer', fontFamily: 'var(--mono)', fontSize: 11, color: 'var(--muted)', borderRadius: 6, transition: 'color 0.15s', letterSpacing: '0.04em' }}
-                    >
-                        <LogOut size={12} /> {isSidebarOpen && 'Sign out'}
-                    </button>
+                    {user ? (
+                        <>
+                            <Link
+                                href={`/u/${user.username}`}
+                                title="View profile"
+                                style={{
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: isSidebarOpen ? 'flex-start' : 'center',
+                                    gap: 10,
+                                    marginBottom: 12,
+                                    padding: isSidebarOpen ? '0' : '2px 0',
+                                    borderRadius: 8,
+                                    textDecoration: 'none',
+                                }}
+                            >
+                                <div style={{ width: 32, height: 32, borderRadius: '50%', background: '#0e0d0b', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'var(--mono)', fontSize: 12, color: '#f5f2eb', fontWeight: 500, flexShrink: 0 }}>
+                                    {initials}
+                                </div>
+                                {isSidebarOpen && (
+                                    <div style={{ overflow: 'hidden' }}>
+                                        <p style={{ fontSize: 13, fontWeight: 500, color: '#0e0d0b', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{user.name}</p>
+                                        <p style={{ fontFamily: 'var(--mono)', fontSize: 10, color: 'var(--muted)' }}>Engineer</p>
+                                    </div>
+                                )}
+                            </Link>
+                            <button
+                                onClick={async () => { await logout(); router.push('/login'); }}
+                                title="Sign out"
+                                style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: isSidebarOpen ? 'flex-start' : 'center', gap: 8, padding: '8px 10px', border: 'none', background: 'transparent', cursor: 'pointer', fontFamily: 'var(--mono)', fontSize: 11, color: 'var(--muted)', borderRadius: 6, transition: 'color 0.15s', letterSpacing: '0.04em' }}
+                            >
+                                <LogOut size={12} /> {isSidebarOpen && 'Sign out'}
+                            </button>
+                        </>
+                    ) : (
+                        <Link
+                            href="/login"
+                            title="Sign in"
+                            className="nav-btn"
+                            style={{ justifyContent: isSidebarOpen ? 'flex-start' : 'center', padding: isSidebarOpen ? '9px 14px' : '9px 10px' }}
+                        >
+                            <LogOut size={12} />
+                            {isSidebarOpen && 'Sign in'}
+                        </Link>
+                    )}
                 </div>
             </aside>
 

@@ -5,6 +5,290 @@
   padding: 0 0 3rem 1.25rem;
 }
 
+/* ── Composer Card ───────────────────────────────────────── */
+.composerCard {
+  background: var(--paper);
+  border: 1px solid var(--border);
+  border-radius: 0.75rem;
+  padding: 1.25rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+  transition: border-color 0.22s ease, box-shadow 0.22s ease;
+  position: relative;
+  overflow: hidden;
+}
+
+.composerCard:focus-within {
+  border-color: color-mix(in srgb, var(--teal) 40%, var(--border));
+  box-shadow: 0 4px 12px rgba(14, 13, 11, 0.04);
+}
+
+.composerHeader {
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+}
+
+.composerAvatar {
+  width: 42px;
+  height: 42px;
+  flex-shrink: 0;
+}
+
+.composerAvatarImage {
+  display: block;
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  border: 1.5px solid var(--border);
+}
+
+.composerAvatarFallback {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
+  background: var(--ink);
+  color: var(--paper);
+  font-family: 'DM Mono', monospace;
+  font-size: 0.8rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+.composerHeaderText {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  flex: 1;
+  min-width: 0;
+}
+
+.composerTitle {
+  margin: 0;
+  font-family: 'DM Mono', monospace;
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: var(--ink);
+  letter-spacing: -0.01em;
+}
+
+.composerSubtitle {
+  margin: 0;
+  font-size: 0.74rem;
+  color: var(--muted);
+  font-family: 'DM Mono', monospace;
+  letter-spacing: 0.01em;
+}
+
+.composerHeaderActions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.composerForm {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  position: relative;
+}
+
+.composerRow {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+}
+
+.composerInput {
+  flex: 1;
+  min-width: 0;
+  height: 40px;
+  padding: 0 0.85rem;
+  border: 1px solid var(--border);
+  border-radius: 0.5rem;
+  background: var(--paper);
+  color: var(--ink);
+  font-family: 'Geist', system-ui, sans-serif;
+  font-size: 0.86rem;
+  outline: none;
+  transition: all 0.18s ease;
+}
+
+.composerInput::placeholder {
+  color: color-mix(in srgb, var(--muted) 60%, transparent 40%);
+}
+
+.composerInput:focus {
+  border-color: var(--teal);
+  background: white;
+}
+
+.composerSelectWrapper {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  min-width: 180px;
+}
+
+.composerSelect {
+  height: 40px;
+  width: 100%;
+  padding: 0 2rem 0 0.75rem;
+  border: 1px solid var(--border);
+  border-radius: 0.5rem;
+  background: var(--paper);
+  color: var(--ink);
+  font-family: 'DM Mono', monospace;
+  font-size: 0.78rem;
+  outline: none;
+  cursor: pointer;
+  transition: all 0.18s ease;
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%236b6760' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 0.75rem center;
+}
+
+.composerSelect:focus {
+  border-color: var(--teal);
+  background: white;
+}
+
+.composerProjectCTA {
+  font-family: 'DM Mono', monospace;
+  font-size: 0.64rem;
+  color: var(--teal);
+  text-decoration: none;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding-left: 0.25rem;
+}
+
+.composerProjectCTA:hover {
+  color: var(--ink);
+}
+
+.composerTextarea {
+  width: 100%;
+  min-height: 100px;
+  max-height: 300px;
+  padding: 0.75rem 0.85rem;
+  border: 1px solid var(--border);
+  border-radius: 0.5rem;
+  background: var(--paper);
+  color: var(--ink);
+  font-family: 'Geist', system-ui, sans-serif;
+  font-size: 0.9rem;
+  line-height: 1.6;
+  resize: vertical;
+  outline: none;
+  transition: all 0.18s ease;
+}
+
+.composerTextarea:focus {
+  border-color: var(--teal);
+  background: white;
+}
+
+.composerFooter {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.composerShortcuts {
+  flex: 1;
+}
+
+.composerCharCount {
+  font-family: 'DM Mono', monospace;
+  font-size: 0.68rem;
+  color: var(--muted);
+  letter-spacing: 0.02em;
+}
+
+.composerActions {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.composerButton {
+  height: 38px;
+  padding: 0 1.5rem;
+  border: none;
+  border-radius: 0.5rem;
+  background: var(--ink);
+  color: var(--paper);
+  font-family: 'DM Mono', monospace;
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.composerButton:hover:not(:disabled) {
+  background: var(--teal);
+  transform: translateY(-1px);
+}
+
+.composerButton:disabled {
+  opacity: 0.2;
+  cursor: not-allowed;
+}
+
+.composerOverlay {
+  position: absolute;
+  inset: -1px;
+  background: rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(2.5px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10;
+  border-radius: 0.5rem;
+}
+
+.composerLoginButton {
+  height: 42px;
+  padding: 0 2rem;
+  border: 1px solid var(--ink);
+  border-radius: 0.6rem;
+  background: var(--paper);
+  color: var(--ink);
+  font-family: 'DM Mono', monospace;
+  font-size: 0.82rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+}
+
+.composerLoginButton:hover {
+  background: var(--ink);
+  color: var(--paper);
+  transform: translateY(-1.5px);
+}
+
+/* ── Filter Row ──────────────────────────────────────────── */
+.filterRow {
+  display: flex;
+  align-items: center;
+  padding: 0 0.5rem;
+  margin-top: -0.25rem;
+}
+
 .filterButton {
   display: inline-flex;
   align-items: center;
@@ -141,18 +425,28 @@
 
 .feedLayout {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) clamp(350px, 33vw, 460px);
-  gap: 2.5rem;
+  grid-template-columns: minmax(0, 1fr) clamp(320px, 30vw, 420px);
+  gap: 2rem;
   align-items: start;
 }
 
 .feedMainColumn {
   min-width: 0;
-  display: contents;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.headerActions {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  flex-wrap: wrap;
+  margin-top: 1.5rem;
 }
 
 .rightRail {
-  width: clamp(350px, 33vw, 460px);
+  width: clamp(320px, 30vw, 420px);
   border: 1px solid var(--border);
   border-radius: 0.75rem;
   background: var(--paper);
@@ -161,7 +455,7 @@
   flex-direction: column;
   gap: 0.85rem;
   position: sticky;
-  top: 0.75rem;
+  top: 1rem;
   margin-left: auto;
 }
 
@@ -274,42 +568,6 @@
   font-weight: 600;
 }
 
-.contributorRow {
-  display: flex;
-  align-items: center;
-  gap: 0.4rem;
-}
-
-.avatarStack {
-  display: inline-flex;
-  align-items: center;
-}
-
-.contributorAvatarPlaceholder {
-  width: 0.9rem;
-  height: 0.9rem;
-  border-radius: 50%;
-  border: 1px solid var(--paper);
-  background: color-mix(in srgb, var(--muted) 35%, var(--paper) 65%);
-  margin-left: -0.3rem;
-}
-
-.contributorAvatarPlaceholder:first-child {
-  margin-left: 0;
-}
-
-.contributorCount {
-  font-size: 0.72rem;
-  color: var(--muted);
-}
-
-.trendingMeta,
-.trendingTime {
-  margin: 0;
-  font-size: 0.7rem;
-  color: var(--muted);
-}
-
 .trendingHighlightRow {
   display: flex;
   align-items: center;
@@ -372,15 +630,10 @@
 }
 
 .rankSkeletonTitle,
-.rankSkeletonAvatar,
-.rankSkeletonSocialText,
-.rankSkeletonTag,
 .rankSkeletonMeta,
+.rankSkeletonHighlightRow,
 .rankSkeletonBadge,
-.rankSkeletonBadgeWide,
-.rankSkeletonTime,
-.rankSkeletonText,
-.rankSkeletonTitleShort {
+.rankSkeletonTime {
   border-radius: 999px;
   background: linear-gradient(
     90deg,
@@ -395,40 +648,6 @@
 .rankSkeletonTitle {
   width: 86%;
   height: 0.72rem;
-}
-
-.rankSkeletonTitleShort {
-  width: 57%;
-  height: 0.68rem;
-}
-
-.rankSkeletonSocialRow {
-  display: flex;
-  align-items: center;
-  gap: 0.4rem;
-}
-
-.rankSkeletonAvatar {
-  width: 0.9rem;
-  height: 0.9rem;
-  border-radius: 50%;
-}
-
-.rankSkeletonSocialText {
-  width: 8.8rem;
-  height: 0.66rem;
-}
-
-.rankSkeletonTagsRow {
-  display: flex;
-  align-items: center;
-  gap: 0.32rem;
-}
-
-.rankSkeletonTag {
-  width: 3.65rem;
-  height: 1.02rem;
-  border-radius: 0.3rem;
 }
 
 .rankSkeletonMeta {
@@ -447,18 +666,8 @@
   height: 1.08rem;
 }
 
-.rankSkeletonBadgeWide {
-  width: 6.5rem;
-  height: 1.08rem;
-}
-
 .rankSkeletonTime {
   width: 2.1rem;
-  height: 0.68rem;
-}
-
-.rankSkeletonText {
-  width: 92%;
   height: 0.68rem;
 }
 
@@ -472,28 +681,12 @@
   }
 }
 
-.tagList {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.4rem;
-}
-
-.railTag {
-  display: inline-flex;
-  align-items: center;
-  padding: 0.2rem 0.45rem;
-  border-radius: 0.3rem;
-  background: var(--border);
-  color: var(--ink);
-  font-size: 0.74rem;
-  font-weight: 500;
-}
-
 .railEmpty {
   margin: 0;
   font-size: 0.8rem;
   color: var(--muted);
 }
+
 
 .feedGrid {
   display: flex;
@@ -575,6 +768,7 @@
 
   .rightRail {
     position: static;
+    width: 100%;
   }
 
   .feedGrid,
@@ -601,5 +795,38 @@
 
   .title {
     font-size: 1.5rem;
+  }
+
+  .composerCard {
+    padding: 1rem;
+  }
+
+  .composerRow {
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+
+  .composerInput {
+    width: 100%;
+  }
+
+  .composerSelectGroup {
+    width: 100%;
+  }
+
+  .composerSelect {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .composerFooter {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.5rem;
+  }
+
+  .composerActions {
+    width: 100%;
+    justify-content: flex-end;
   }
 }

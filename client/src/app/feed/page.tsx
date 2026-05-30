@@ -1,19 +1,20 @@
-import { Suspense } from 'react';
-import FeedContent from './feed-content';
-import AppLayout from '@/components/dashboard/AppLayout';
-import SkeletonCard from '@/components/feed/SkeletonCard';
-import styles from './feed.module.css';
+import { Suspense } from "react";
+import type { Metadata } from "next";
+import { FeedContent, FeedProvider } from "./feed-content";
+import AppLayout from "@/components/dashboard/AppLayout";
+import SkeletonCard from "@/components/feed/SkeletonCard";
+import styles from "./feed.module.css";
 
-export const metadata = {
-  title: 'Community Feed | TraceVault',
-  description: 'Discover insights from the engineering community',
+export const metadata: Metadata = {
+  title: "Community Feed | TraceVault",
+  description: "Discover insights from the engineering community",
 };
 
 function FeedSkeleton() {
   return (
     <AppLayout
-      title="Community Feed"
-      subtitle="Discover and engage with reflections from your engineering community"
+      title=""
+      subtitle=""
     >
       <div className={styles.container}>
         <div className={styles.feed}>
@@ -30,8 +31,19 @@ function FeedSkeleton() {
 
 export default function FeedPage() {
   return (
-    <Suspense fallback={<FeedSkeleton />}>
-      <FeedContent />
-    </Suspense>
+    <FeedProvider>
+      <Suspense fallback={<FeedSkeleton />}>
+        <div className={styles.container}>
+          <div className={styles.feed}>
+            <AppLayout
+              title=""
+              subtitle=""
+            >
+              <FeedContent />
+            </AppLayout>
+          </div>
+        </div>
+      </Suspense>
+    </FeedProvider>
   );
 }
