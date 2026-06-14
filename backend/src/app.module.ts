@@ -10,6 +10,9 @@ import { CollectionsModule } from './collections/collections.module';
 
 @Module({
   imports: [
+    ConfigModule.forRoot({
+      isGlobal: true,
+    }),
     ThrottlerModule.forRoot({
       throttlers: [
         {
@@ -21,9 +24,6 @@ import { CollectionsModule } from './collections/collections.module';
     UsersModule,
     AuthModule,
     PrismaModule,
-    ConfigModule.forRoot({
-      isGlobal: true,
-    }),
     ProjectsModule,
     ReflectionsModule,
     CollectionsModule,

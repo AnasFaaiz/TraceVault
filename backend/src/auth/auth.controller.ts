@@ -45,6 +45,22 @@ export class AuthController {
     res.json(result);
   }
 
+  @Post('mfa-email-otp')
+  async sendEmailMfaOtp(@Body() body: { mfaSessionToken: string }) {
+    return this.authService.sendMfaEmailOtp(body.mfaSessionToken);
+  }
+
+  @Post('verify-mfa-challenge')
+  async verifyMfaChallenge(
+    @Body()
+    body: { mfaSessionToken: string; code: string; method: 'totp' | 'email' },
+    @Req() req: express.Request,
+    @Res() res: express.Response,
+  ) {
+    const result = await this.authService.verifyMfaChallenge(body, req, res);
+    res.json(result);
+  }
+
   @Post('refresh')
   async refresh(@Req() req: express.Request, @Res() res: express.Response) {
     const result = await this.authService.refreshToken(req, res);

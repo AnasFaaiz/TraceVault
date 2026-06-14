@@ -14,7 +14,6 @@ import * as QRCode from 'qrcode';
 import type { Response, Request } from 'express';
 import { VerifyMfaDto } from './dto/mfa.dto';
 import { LoginDto } from './dto/login.dto';
-import { ref } from 'process';
 
 @Injectable()
 export class AuthService {
@@ -74,7 +73,7 @@ export class AuthService {
     if (res) this.setRefreshTokenCookie(res, refreshToken, refreshTokenExpires);
 
     return {
-      message: 'User registered successful',
+      message: 'User registered successfully',
       user: {
         id: user.id,
         email: user.email,
@@ -111,8 +110,7 @@ export class AuthService {
       if (trustedRecord) isDeviceTrusted = true;
     }
 
-    // ⚡️ FIXED: Changed user.twoFactorEnabled to user.isTwoFactorSecret to match your schema.prisma
-    if (user.isTwoFactorSecret && !isDeviceTrusted) {
+    if (!isDeviceTrusted) {
       const mfaSessionToken = this.jwtService.sign(
         { sub: user.id, isMfaPending: true },
         {
@@ -123,7 +121,7 @@ export class AuthService {
       return {
         requiresMFA: true,
         mfaSessionToken,
-        supportedMethods: ['totp', 'email'],
+        supportedMethods: user.twoFactorSecret ? ['totp', 'email'] : ['email'],
       };
     }
 
@@ -418,7 +416,7 @@ export class AuthService {
       id: user.id,
       email: user.email,
       name: user.name,
-      username: user.username,
+      username: username,
     };
   }
 }

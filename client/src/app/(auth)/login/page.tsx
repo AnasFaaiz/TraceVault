@@ -12,6 +12,7 @@ import api from "@/lib/api";
 import { useAuthStore } from "@/store/useAuthStore";
 import { useRouter } from "next/navigation";
 
+// Validation schemas
 const loginSchema = z.object({
   email: z.string().email("Invalid email address"),
   password: z.string().min(6, "Password must be at least 6 characters"),
@@ -29,14 +30,16 @@ export default function LoginPage() {
   const [error, setError] = useState<string | null>(null);
   const [showPassword, setShowPassword] = useState(false);
 
-  // Multi-Factor Intercept States
+  // Multi-Factor Authentication Intercept States
   const [mfaRequired, setMfaRequired] = useState(false);
   const [mfaSessionToken, setMfaSessionToken] = useState<string | null>(null);
-  const [mfaMethod, setMfaMethod] = useState<"totp" | "email">("totp");
+  const [mfaMethod, setMfaMethod] = useState<"totp" | "email">("email");
+  const [availableMethods, setAvailableMethods] = useState<string[]>(["email"]);
 
   const { setAuth, token, _hasHydrated } = useAuthStore();
   const router = useRouter();
 
+  // Redirect if user is already authenticated
   useEffect(() => {
     if (_hasHydrated && token) {
       router.push("/feed");
@@ -58,16 +61,29 @@ export default function LoginPage() {
     try {
       const response = await api.post("/auth/login", data);
 
-      // If backend signals that MFA challenge validation is required
+      // Handle MFA Interception
       if (response.data?.requiresMFA) {
+        const sessionToken = response.data.mfaSessionToken;
+        const methods = response.data.supportedMethods || ["email"];
+
+        // Default to 'totp' if available, otherwise fall back to 'email'
+        const defaultMethod = methods.includes("totp") ? "totp" : "email";
+
         setMfaRequired(true);
-        setMfaSessionToken(response.data.mfaSessionToken);
-        setMfaMethod(
-          response.data.supportedMethods?.includes("totp") ? "totp" : "email",
-        );
+        setMfaSessionToken(sessionToken);
+        setAvailableMethods(methods);
+        setMfaMethod(defaultMethod);
+
+        // If the targeted method is Email OTP, trigger the delivery API immediately
+        if (defaultMethod === "email") {
+          await api.post("/auth/mfa-email-otp", {
+            mfaSessionToken: sessionToken,
+          });
+        }
         return;
       }
 
+      // Standard Login Flow (MFA bypassed or device trusted)
       const { user, accessToken } = response.data;
       setAuth(user, accessToken);
       router.push("/feed");
@@ -81,13 +97,13 @@ export default function LoginPage() {
     }
   };
 
-  // Step 2: Submit the 6-digit confirmation token
+  // Step 2: Submit the 6-digit confirmation token (MFA Checkpoint verification)
   const onMfaSubmit = async (data: MfaFormValues) => {
     if (!mfaSessionToken) return;
     setIsLoading(true);
     setError(null);
     try {
-      const response = await api.post("/auth/verify-mfa", {
+      const response = await api.post("/auth/verify-mfa-challenge", {
         mfaSessionToken,
         code: data.code,
         method: mfaMethod,
@@ -105,20 +121,26 @@ export default function LoginPage() {
     }
   };
 
-  // Switch challenge over to email dynamic tokens
-  const triggerEmailFallback = async () => {
+  // Switch challenge over to email dynamic tokens or execute a Resend trigger
+  const handleMethodChange = async (method: "totp" | "email") => {
     if (!mfaSessionToken) return;
-    setIsLoading(true);
+    setMfaMethod(method);
     setError(null);
-    try {
-      await api.post("/auth/mfa-email-otp", { mfaSessionToken });
-      setMfaMethod("email");
-    } catch (err: any) {
-      setError(
-        err.response?.data?.message || "Failed to dispatch email safety token.",
-      );
-    } finally {
-      setIsLoading(false);
+    mfaForm.reset();
+
+    // Trigger explicit email dispatch if transitioning or resending
+    if (method === "email") {
+      setIsLoading(true);
+      try {
+        await api.post("/auth/mfa-email-otp", { mfaSessionToken });
+      } catch (err: any) {
+        setError(
+          err.response?.data?.message ||
+            "Failed to dispatch email verification code.",
+        );
+      } finally {
+        setIsLoading(false);
+      }
     }
   };
 
@@ -223,6 +245,55 @@ export default function LoginPage() {
           onSubmit={mfaForm.handleSubmit(onMfaSubmit)}
           className={styles.form}
         >
+          {/* Choice Selection Tabs (Only displayed if multiple methods are accessible) */}
+          {availableMethods.length > 1 && (
+            <div
+              style={{
+                display: "flex",
+                gap: "8px",
+                marginBottom: "20px",
+                background: "#1b1b1f",
+                padding: "4px",
+                borderRadius: "6px",
+              }}
+            >
+              <button
+                type="button"
+                onClick={() => handleMethodChange("totp")}
+                style={{
+                  flex: 1,
+                  padding: "8px",
+                  borderRadius: "4px",
+                  fontSize: "12px",
+                  cursor: "pointer",
+                  border: "none",
+                  background: mfaMethod === "totp" ? "#27272a" : "transparent",
+                  color: mfaMethod === "totp" ? "#ffffff" : "#a1a1aa",
+                  transition: "all 0.2s ease",
+                }}
+              >
+                Authenticator App
+              </button>
+              <button
+                type="button"
+                onClick={() => handleMethodChange("email")}
+                style={{
+                  flex: 1,
+                  padding: "8px",
+                  borderRadius: "4px",
+                  fontSize: "12px",
+                  cursor: "pointer",
+                  border: "none",
+                  background: mfaMethod === "email" ? "#27272a" : "transparent",
+                  color: mfaMethod === "email" ? "#ffffff" : "#a1a1aa",
+                  transition: "all 0.2s ease",
+                }}
+              >
+                Email Code
+              </button>
+            </div>
+          )}
+
           <div className={styles.mfaContainer}>
             <div className={styles.mfaIconWrapper}>
               {mfaMethod === "totp" ? (
@@ -248,7 +319,11 @@ export default function LoginPage() {
           )}
 
           <div className={styles.formGroup}>
-            <label className={styles.label}>Verification Token</label>
+            <label className={styles.label}>
+              {mfaMethod === "totp"
+                ? "Authenticator Code"
+                : "Verification Token"}
+            </label>
             <div className={styles.inputWrapper}>
               <input
                 {...mfaForm.register("code")}
@@ -257,6 +332,11 @@ export default function LoginPage() {
                 autoComplete="one-time-code"
                 placeholder="000000"
                 className={`${styles.input} ${styles.mfaInput}`}
+                style={{
+                  textAlign: "center",
+                  letterSpacing: "0.25em",
+                  fontSize: "18px",
+                }}
               />
             </div>
             {mfaForm.formState.errors.code && (
@@ -283,15 +363,22 @@ export default function LoginPage() {
             )}
           </button>
 
-          {mfaMethod === "totp" && (
-            <button
-              type="button"
-              onClick={triggerEmailFallback}
-              className={styles.fallbackBtn}
-            >
-              Lost app access? Request a secure email fallback code
-            </button>
-          )}
+          <button
+            type="button"
+            onClick={() => handleMethodChange("email")}
+            className={styles.fallbackBtn}
+            disabled={isLoading}
+            style={{
+              marginTop: "12px",
+              background: "none",
+              border: "none",
+              cursor: "pointer",
+            }}
+          >
+            {mfaMethod === "totp"
+              ? "Lost app access? Request a secure email fallback code"
+              : "Didn't receive a code? Click here to resend email token"}
+          </button>
         </form>
       )}
     </AuthLayout>
