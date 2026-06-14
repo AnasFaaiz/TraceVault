@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
-import { User, TrustedDevice, EmailOtps } from '@prisma/client';
+import { User, TrustedDevice, EmailOtps, Visibility } from '@prisma/client';
 import * as crypto from 'crypto';
 
 @Injectable()
@@ -13,9 +13,17 @@ export class UsersService {
     password: string;
     name: string;
     username?: string;
+    visibility?: string;
   }): Promise<User> {
     return this.prisma.user.create({
-      data,
+      data: {
+        email: data.email,
+        password: data.password,
+        name: data.name,
+        username: data.username,
+        visibility:
+          (data.visibility?.toUpperCase() as Visibility) || Visibility.PUBLIC,
+      },
     });
   }
 

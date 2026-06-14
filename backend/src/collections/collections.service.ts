@@ -61,7 +61,7 @@ export class CollectionsService {
     return this.prisma.collection.create({
       data: {
         ...data,
-        visibility: (data.visibility as Visibility) || Visibility.public,
+        visibility: (data.visibility as Visibility) || Visibility.PUBLIC,
         userId,
       },
     });
@@ -86,7 +86,7 @@ export class CollectionsService {
     });
 
     if (!collection) throw new NotFoundException('Collection not found');
-    if (collection.userId !== userId && collection.visibility !== 'public') {
+    if (collection.userId !== userId && collection.visibility !== 'PUBLIC') {
       throw new ForbiddenException('You do not have access to this collection');
     }
 
@@ -94,7 +94,7 @@ export class CollectionsService {
       id: collection.id,
       name: collection.name,
       description: collection.description,
-      visibility: collection.visibility as 'private' | 'public',
+      visibility: collection.visibility as 'PRIVATE' | 'PUBLIC',
       entryCount: collection.entries.length,
       updatedAt: collection.updatedAt,
       entries: collection.entries.map((ce: any) => ({

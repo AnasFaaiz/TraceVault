@@ -233,7 +233,7 @@ export class ReflectionsService {
 
     const [records, vaults] = await Promise.all([
       this.prisma.reflection.findMany({
-        where: { createdAt: { gte: timeLimit }, visibility: 'public' },
+        where: { createdAt: { gte: timeLimit }, visibility: 'PUBLIC' },
         take: limit,
         include: { user: true, project: true, votes: true },
       }),
@@ -256,7 +256,7 @@ export class ReflectionsService {
   async getTopTags(limit: number) {
     const records = await this.prisma.reflection.findMany({
       select: { tags: true },
-      where: { visibility: 'public' },
+      where: { visibility: 'PUBLIC' },
     });
 
     const counts = new Map<string, number>();
@@ -286,7 +286,7 @@ export class ReflectionsService {
       if (period === '30d') timeLimit.setDate(timeLimit.getDate() - 30);
     }
 
-    const whereClause: any = { visibility: 'public' };
+    const whereClause: any = { visibility: 'PUBLIC' };
     if (timeLimit) {
       whereClause.createdAt = { gte: timeLimit };
     }
@@ -304,7 +304,7 @@ export class ReflectionsService {
     const users = await this.prisma.user.findMany({
       where: {
         id: { in: grouped.map((row) => row.userId) },
-        visibility: 'public',
+        visibility: 'PUBLIC',
       },
       select: {
         id: true,

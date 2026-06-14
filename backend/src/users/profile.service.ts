@@ -153,14 +153,14 @@ export class ProfileService {
 
     const visibleReflectionsForBreakdown = isOwnProfile
       ? user.reflections
-      : user.reflections.filter((r) => r.visibility === 'public');
+      : user.reflections.filter((r) => r.visibility === 'PUBLIC');
 
     const visibleProjects = user.projects
       .map((p) => ({
         ...p,
         reflections: isOwnProfile
           ? p.reflections
-          : p.reflections.filter((r) => r.visibility === 'public'),
+          : p.reflections.filter((r) => r.visibility === 'PUBLIC'),
       }))
       .filter((p) => p.reflections.length > 0 || isOwnProfile);
 
@@ -244,7 +244,7 @@ export class ProfileService {
   ) {
     const totalEntries = reflections.length;
     const publicReflections = reflections.filter(
-      (r) => r.visibility === 'public',
+      (r) => r.visibility === 'PUBLIC',
     );
     const privateCount = totalEntries - publicReflections.length;
 
