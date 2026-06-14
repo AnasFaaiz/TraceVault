@@ -97,12 +97,13 @@ export class CollectionsService {
       visibility: collection.visibility as 'private' | 'public',
       entryCount: collection.entries.length,
       updatedAt: collection.updatedAt,
-      entries: collection.entries.map((ce) => ({
+      entries: collection.entries.map((ce: any) => ({
         id: ce.entry.id,
         title: ce.entry.title,
         category: ce.entry.category,
         impact: ce.entry.impact,
-        projectName: ce.entry.project.name,
+        // ⚡️ FIXED: Uses safe optional chaining and fallback text to handle standalone logs cleanly
+        projectName: ce.entry.project?.name || 'Standalone Log',
         topReactionEmoji: ce.entry.votes[0]?.type || null,
         createdAt: ce.entry.createdAt,
         relativeDate: formatRelativeTime(ce.entry.createdAt),

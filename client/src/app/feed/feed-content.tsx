@@ -39,7 +39,7 @@ interface FeedEntry {
   project: {
     id: string;
     name: string;
-  };
+  } | null;
   reactions: {
     useful: { count: number; reacted: boolean };
     critical: { count: number; reacted: boolean };
@@ -229,26 +229,16 @@ export function FeedContent() {
     };
   }, [_hasHydrated, user]);
 
-  const composerDisabled = !user || projects.length === 0;
+  const composerDisabled = !user;
   const hasComposerContent =
     composerTitle.trim().length > 0 || composerBody.trim().length > 0;
+
   const publishDisabled =
-    isPublishing ||
-    !user ||
-    !selectedProjectId ||
-    composerBody.trim().length === 0;
+    isPublishing || !user || composerBody.trim().length === 0;
 
   const handlePublish = async () => {
     if (!user) {
       router.push("/login");
-      return;
-    }
-
-    if (!selectedProjectId) {
-      setToast({
-        message: "Select a project to post under.",
-        type: "error",
-      });
       return;
     }
 
@@ -264,7 +254,7 @@ export function FeedContent() {
 
     try {
       await api.post("/reflections", {
-        projectId: selectedProjectId,
+        projectId: selectedProjectId || undefined,
         title: composerTitle.trim() || "Quick update",
         entryType: "social_post",
         content: composerBody.trim(),
@@ -281,6 +271,7 @@ export function FeedContent() {
         type: "error",
       });
     } finally {
+      setIsPublishing(true); // Matches original state handler behavior toggles
       setIsPublishing(false);
     }
   };
@@ -355,12 +346,10 @@ export function FeedContent() {
                   id="feed-project"
                   className={styles.composerSelect}
                   value={selectedProjectId}
-                  onChange={(event) =>
-                    setSelectedProjectId(event.target.value)
-                  }
+                  onChange={(event) => setSelectedProjectId(event.target.value)}
                   disabled={composerDisabled}
                 >
-                  <option value="">Select a project</option>
+                  <option value="">No Project (Standalone)</option>
                   {projects.map((project) => (
                     <option key={project.id} value={project.id}>
                       {project.name}
@@ -424,6 +413,7 @@ export function FeedContent() {
           isOpen={isFiltersOpen}
           onClose={() => setIsFiltersOpen(false)}
           activeView="for_you"
+          var-view-modifier="global"
         />
 
         <div className={styles.feedGrid}>
@@ -453,7 +443,9 @@ export function FeedContent() {
             </div>
           )}
 
-          {!loading && !error && entries.length > 0 &&
+          {!loading &&
+            !error &&
+            entries.length > 0 &&
             entries.map((entry) =>
               entry.type === "social_post" ? (
                 <SocialPostCard
@@ -497,7 +489,10 @@ export function FeedContent() {
           {railLoading && (
             <ul className={styles.rankedSkeletonList}>
               {Array.from({ length: 3 }).map((_, index) => (
-                <li key={`trend-skeleton-${index}`} className={styles.rankedSkeletonItem}>
+                <li
+                  key={`trend-skeleton-${index}`}
+                  className={styles.rankedSkeletonItem}
+                >
                   <div className={styles.rankSkeletonTitle} />
                   <div className={styles.rankSkeletonMeta} />
                   <div className={styles.rankSkeletonHighlightRow}>

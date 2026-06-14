@@ -67,13 +67,14 @@ export class ReflectionsService {
         username: record?.user?.username || 'Anonymous',
         avatarUrl: record?.user?.avatarUrl || null,
       },
-      project: {
-        id: record?.project?.id || '',
-        name: record?.project?.name || 'Unassigned',
-      },
+      project: record?.project?.id
+        ? {
+            id: record.project.id,
+            name: record.project.name,
+          }
+        : null,
       type: record?.category === 'SOCIAL_POST' ? 'social_post' : 'reflection',
 
-      // ⚡️ FIXED: Clean structure returning aggregated score counts and explicit user states
       votes: {
         upvoteCount: upvotes.length,
         downvoteCount: downvotes.length,
@@ -99,17 +100,16 @@ export class ReflectionsService {
 
   async createReflection(
     userId: string,
-    projectId: string,
+    projectId: string | undefined,
     data: CreateReflectionDto,
   ) {
     const mappedCategory = (data.category?.toUpperCase() ||
-      'DEVELOPER_NOTE') as ReflectionCategory;
+      'DESIGN_DECISION') as ReflectionCategory;
     const mappedImpact = (data.impact?.toUpperCase() || 'MINOR') as ImpactLevel;
-
     return this.prisma.reflection.create({
       data: {
-        userId,
-        projectId,
+        user: { connect: { id: userId } },
+        project: projectId ? { connect: { id: projectId } } : undefined,
         title: data.title,
         category: mappedCategory,
         fields: data.fields || {},
@@ -137,7 +137,9 @@ export class ReflectionsService {
         select: { entryId: true },
       }),
     ]);
-    const vaultedSet = new Set(vaults.map((v) => v.entryId));
+    const vaultedSet = new Set(
+      vaults.map((v: { entryId: string }) => v.entryId),
+    );
     return records.map((r) => this.mapToFeedEntry(r, userId, vaultedSet));
   }
 
@@ -162,7 +164,9 @@ export class ReflectionsService {
         select: { entryId: true },
       }),
     ]);
-    const vaultedSet = new Set(vaults.map((v) => v.entryId));
+    const vaultedSet = new Set(
+      vaults.map((v: { entryId: string }) => v.entryId),
+    );
     return records.map((r) => this.mapToFeedEntry(r, userId, vaultedSet));
   }
 
@@ -175,7 +179,11 @@ export class ReflectionsService {
   }) {
     const whereClause: any = {};
     if (filters.userId) whereClause.userId = filters.userId;
-    if (filters.projectId) whereClause.projectId = filters.projectId;
+
+    if (filters.projectId) {
+      whereClause.projectId =
+        filters.projectId === 'none' ? null : filters.projectId;
+    }
 
     if (filters.category) {
       whereClause.category =
@@ -205,7 +213,9 @@ export class ReflectionsService {
           })
         : Promise.resolve([]),
     ]);
-    const vaultedSet = new Set(vaults.map((v) => v.entryId));
+    const vaultedSet = new Set(
+      vaults.map((v: { entryId: string }) => v.entryId),
+    );
     return records.map((r) =>
       this.mapToFeedEntry(r, filters.userId, vaultedSet),
     );
@@ -235,7 +245,9 @@ export class ReflectionsService {
         : Promise.resolve([]),
     ]);
 
-    const vaultedSet = new Set(vaults.map((v) => v.entryId));
+    const vaultedSet = new Set(
+      vaults.map((v: { entryId: string }) => v.entryId),
+    );
     return records
       .map((r) => this.mapToFeedEntry(r, userId, vaultedSet))
       .sort((a, b) => b.votes.score - a.votes.score);
@@ -342,9 +354,13 @@ export class ReflectionsService {
     const target = await this.prisma.reflection.findUnique({ where: { id } });
     if (!target) throw new NotFoundException('Reflection not found');
 
+    const contextFilter: Record<string, any> = target.projectId
+      ? { projectId: target.projectId }
+      : { userId: target.userId, projectId: null };
+
     const [records, vaults] = await Promise.all([
       this.prisma.reflection.findMany({
-        where: { projectId: target.projectId, NOT: { id } },
+        where: { ...contextFilter, NOT: { id } },
         take: limit,
         orderBy: { createdAt: 'desc' },
         include: { user: true, project: true, votes: true },
@@ -357,7 +373,9 @@ export class ReflectionsService {
         : Promise.resolve([]),
     ]);
 
-    const vaultedSet = new Set(vaults.map((v) => v.entryId));
+    const vaultedSet = new Set(
+      vaults.map((v: { entryId: string }) => v.entryId),
+    );
     return records.map((r) => this.mapToFeedEntry(r, userId, vaultedSet));
   }
 
@@ -439,7 +457,9 @@ export class ReflectionsService {
       }),
     ]);
 
-    const vaultedSet = new Set(vaults.map((v) => v.entryId));
+    const vaultedSet = new Set(
+      vaults.map((v: { entryId: string }) => v.entryId),
+    );
     return {
       entries: records.map((r) => this.mapToFeedEntry(r, userId, vaultedSet)),
       pagination: {
@@ -460,7 +480,6 @@ export class ReflectionsService {
     return Array.from(tagsSet);
   }
 
-  // ⚡️ FIXED: Updated method metrics using explicit VoteType Enums
   async getReactionCounts(entryId: string, userId?: string) {
     const votes = await this.prisma.vote.findMany({
       where: { entryId },

@@ -29,7 +29,7 @@ export class ReflectionsController {
     @Req() req: { user: { userId: string } },
     @Body()
     body: {
-      projectId: string;
+      projectId?: string;
       title: string;
       entryType?: 'reflection' | 'social_post';
       category?: string;

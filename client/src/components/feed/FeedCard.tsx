@@ -10,30 +10,41 @@ import {
 } from "lucide-react";
 import { useCallback, useState } from "react";
 import React from "react";
-import { ALL_TEMPLATES, getTemplate, TemplateType } from "@/lib/templateDefinitions";
+import {
+  ALL_TEMPLATES,
+  getTemplate,
+  TemplateType,
+} from "@/lib/templateDefinitions";
 import api from "@/lib/api";
 import { useAuthStore } from "@/store/useAuthStore";
 import styles from "./FeedCard.module.css";
 
+// Shared interface matching your central feed configuration
 interface FeedEntry {
   id: string;
   title: string;
   category: string;
   template_type?: string;
+  impact?: string; // Optionalized to maintain uniformity across cards
+  tags?: string[];
+  content?: string;
+  fields?: Record<string, string | string[] | boolean | null | undefined>;
   snippet: string;
   readTime: string;
   confidence: string | null;
   createdAt: string;
   relativeDate: string;
+  type?: "reflection" | "social_post";
   author: {
     id: string;
     username: string;
     avatarUrl: string | null;
   };
+  // ⚡️ FIXED: Updated to support null for standalone logs
   project: {
     id: string;
     name: string;
-  };
+  } | null;
   reactions: {
     useful: { count: number; reacted: boolean };
     critical: { count: number; reacted: boolean };
@@ -48,7 +59,6 @@ interface FeedCardProps {
   onOpenChat: () => void;
 }
 
-// Dynamic color generator for tags/badges
 const getBadgeStyle = (text: string) => {
   const normalizedText = text.toUpperCase();
   switch (normalizedText) {
@@ -206,8 +216,13 @@ export default function FeedCard({ entry, onOpen, onOpenChat }: FeedCardProps) {
       <div className={styles.cardHeader}>
         <div className={styles.metaInfo}>
           <span className={styles.authorName}>@{entry.author.username}</span>
-          <span className={styles.divider}>•</span>
-          <span className={styles.projectName}>{entry.project.name}</span>
+          {/* ⚡️ FIXED: Use optional chaining to safely fall back if project is null */}
+          {entry.project && (
+            <>
+              <span className={styles.divider}>•</span>
+              <span className={styles.projectName}>{entry.project.name}</span>
+            </>
+          )}
         </div>
 
         <div className={styles.badgeRow}>
@@ -301,7 +316,7 @@ export default function FeedCard({ entry, onOpen, onOpenChat }: FeedCardProps) {
             aria-label={isVaulted ? "Remove from vault" : "Add to vault"}
             disabled={!user || isVaultUpdating}
           >
-            {isVaulted ? <Check size={18} /> : <Check size={18} />}
+            <Check size={18} />
           </button>
 
           <button
@@ -379,21 +394,21 @@ function truncate(text: string, max: number): string {
 function renderSnippetAsPoints(snippet: string) {
   if (!snippet || snippet.trim().length === 0) return null;
 
-  // Heuristics: if it contains newlines or list markers, render as points
-  const looksLikeList = /\n|^\s*[-*+]\s|^\s*\d+\./m.test(snippet) || /#{1,6}\s/.test(snippet);
+  const looksLikeList =
+    /\n|^\s*[-*+]\s|^\s*\d+\./m.test(snippet) || /#{1,6}\s/.test(snippet);
 
   if (!looksLikeList) {
     return <p className={styles.cardSnippet}>{snippet}</p>;
   }
 
-  // Split into meaningful lines
-  const rawLines = snippet.split(/\n+/).map((l) => l.trim()).filter(Boolean);
+  const rawLines = snippet
+    .split(/\n+/)
+    .map((l) => l.trim())
+    .filter(Boolean);
   const items: string[] = [];
 
   rawLines.forEach((line) => {
-    // Remove markdown heading markers
     const headingMatch = line.replace(/^#{1,6}\s+/, "");
-    // Remove list markers like '- ', '* ', '1. '
     const cleaned = headingMatch.replace(/^[-*+\s]*\d*\.?\s*/, "").trim();
     if (cleaned.length > 0) items.push(cleaned);
   });
@@ -405,7 +420,9 @@ function renderSnippetAsPoints(snippet: string) {
   return (
     <ul className={styles.pointsList}>
       {items.map((it, idx) => (
-        <li key={idx} className={styles.pointItem}>{it}</li>
+        <li key={idx} className={styles.pointItem}>
+          {it}
+        </li>
       ))}
     </ul>
   );

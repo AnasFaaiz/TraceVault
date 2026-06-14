@@ -12,31 +12,44 @@ import {
 } from "lucide-react";
 import api from "@/lib/api";
 import { useAuthStore } from "@/store/useAuthStore";
-import styles from "./FeedCard.module.css"; // Inheriting baseline card wrappers to keep styling dry
+import styles from "./FeedCard.module.css";
+
+// Shared unified interface matching FeedCard and the parent provider structure
+interface FeedEntry {
+  id: string;
+  title: string;
+  category: string;
+  template_type?: string;
+  impact?: string;
+  tags?: string[];
+  content?: string;
+  fields?: Record<string, string | string[] | boolean | null | undefined>;
+  snippet: string;
+  readTime: string;
+  confidence: string | null;
+  createdAt: string;
+  relativeDate: string;
+  type?: "reflection" | "social_post";
+  author: {
+    id: string;
+    username: string;
+    avatarUrl: string | null;
+  };
+  // ⚡️ FIXED: Adjusted to support null values for standalone feeds
+  project: {
+    id: string;
+    name: string;
+  } | null;
+  reactions: {
+    useful: { count: number; reacted: boolean };
+    critical: { count: number; reacted: boolean };
+    applied?: { count: number; reacted: boolean };
+  };
+  vaulted: boolean;
+}
 
 interface SocialPostCardProps {
-  entry: {
-    id: string;
-    title: string;
-    content?: string;
-    relativeDate: string;
-    tags: string[];
-    author: {
-      id: string;
-      username: string;
-      avatarUrl: string | null;
-    };
-    project: {
-      id: string;
-      name: string;
-    };
-    reactions: {
-      useful: { count: number; reacted: boolean };
-      critical: { count: number; reacted: boolean };
-      applied: { count: number; reacted: boolean };
-    };
-    vaulted: boolean;
-  };
+  entry: FeedEntry;
   onOpen: () => void;
   onOpenChat: () => void;
 }
@@ -162,6 +175,7 @@ export default function SocialPostCard({
       onOpen();
     }
   };
+
   return (
     <div
       className={`${styles.feedCard} ${styles.socialPostCard} ${styles.clickableCard}`}
@@ -178,7 +192,7 @@ export default function SocialPostCard({
       >
         <MoreHorizontal size={16} />
       </button>
-      {/* Upper Content Frame */}
+
       <div className={styles.cardHeader}>
         <div className={styles.authorMeta}>
           {entry.author.avatarUrl ? (
@@ -191,28 +205,36 @@ export default function SocialPostCard({
             <div className={styles.avatarPlaceholder} aria-hidden="true" />
           )}
           <div className={styles.authorLine}>
-            <span className={styles.authorName}>{entry.author.username}</span>
-            <span className={styles.postDivider}>shared a quick update in</span>
-            <Link
-              href={`/projects/${entry.project.id}`}
-              className={styles.projectLink}
-              onClick={(event) => event.stopPropagation()}
-            >
-              {entry.project.name}
-            </Link>
+            <span className={styles.authorName}>@{entry.author.username}</span>
+            {/* ⚡️ FIXED: Render project link conditionally, fallback gracefully to a generic string */}
+            {entry.project ? (
+              <>
+                <span className={styles.postDivider}>
+                  shared a quick update in
+                </span>
+                <Link
+                  href={`/projects/${entry.project.id}`}
+                  className={styles.projectLink}
+                  onClick={(event) => event.stopPropagation()}
+                >
+                  {entry.project.name}
+                </Link>
+              </>
+            ) : (
+              <span className={styles.postDivider}>
+                shared a standalone update
+              </span>
+            )}
           </div>
         </div>
-
-        {/* header actions (progressive actions are in footer) */}
         <div />
       </div>
 
-      {/* Simplified, high-readability body block layout */}
       <div className={styles.cardBody}>
         {entry.title && <h3 className={styles.socialTitle}>{entry.title}</h3>}
         <p className={styles.socialText}>{entry.content}</p>
 
-        {entry.tags.length > 0 && (
+        {entry.tags && entry.tags.length > 0 && (
           <div className={styles.tagContainer}>
             {entry.tags.map((tag) => (
               <span key={tag} className={styles.tagBadge}>
@@ -224,7 +246,6 @@ export default function SocialPostCard({
         <span className={styles.timestampInline}>{entry.relativeDate}</span>
       </div>
 
-      {/* Action tray */}
       <div className={styles.cardFooter}>
         <div className={styles.actionGroup}>
           <div className={styles.voteItem}>
@@ -240,7 +261,9 @@ export default function SocialPostCard({
             >
               <ArrowUp size={18} strokeWidth={2.2} />
             </button>
-            <span className={`${styles.voteCount} ${userVote === "up" ? styles.activeUpText : ""}`}>
+            <span
+              className={`${styles.voteCount} ${userVote === "up" ? styles.activeUpText : ""}`}
+            >
               {upCount}
             </span>
           </div>
@@ -258,7 +281,9 @@ export default function SocialPostCard({
             >
               <ArrowDown size={18} strokeWidth={2.2} />
             </button>
-            <span className={`${styles.voteCount} ${userVote === "down" ? styles.activeDownText : ""}`}>
+            <span
+              className={`${styles.voteCount} ${userVote === "down" ? styles.activeDownText : ""}`}
+            >
               {downCount}
             </span>
           </div>
@@ -313,7 +338,11 @@ export default function SocialPostCard({
             aria-label={copied ? "Link copied" : "Copy link"}
           >
             {copied ? (
-              <Check size={18} strokeWidth={2.2} className={styles.copiedIcon || ""} />
+              <Check
+                size={18}
+                strokeWidth={2.2}
+                className={styles.copiedIcon || ""}
+              />
             ) : (
               <LinkIcon size={18} strokeWidth={2.2} />
             )}

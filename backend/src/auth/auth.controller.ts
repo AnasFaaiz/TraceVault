@@ -32,7 +32,8 @@ export class AuthController {
       body.name,
       res,
     );
-    res.json(result);
+    // Explicit return to satisfy express passthrough constraints safely
+    return res.json(result);
   }
 
   @Post('login')
@@ -42,12 +43,19 @@ export class AuthController {
     @Res() res: express.Response,
   ) {
     const result = await this.authService.login(body, req, res);
-    res.json(result);
+    return res.json(result);
   }
 
   @Post('mfa-email-otp')
-  async sendEmailMfaOtp(@Body() body: { mfaSessionToken: string }) {
-    return this.authService.sendMfaEmailOtp(body.mfaSessionToken);
+  async sendEmailMfaOtp(
+    @Body() body: { mfaSessionToken?: string; token?: string; email?: string },
+    @Res() res: express.Response,
+  ) {
+    // ⚡️ FIXED: Fallback logic handles standard login MFA flows AND recovery tracking check-ins
+    const targetToken = body.mfaSessionToken || body.token || '';
+
+    const result = await this.authService.sendMfaEmailOtp(targetToken);
+    return res.json(result);
   }
 
   @Post('verify-mfa-challenge')
@@ -58,19 +66,19 @@ export class AuthController {
     @Res() res: express.Response,
   ) {
     const result = await this.authService.verifyMfaChallenge(body, req, res);
-    res.json(result);
+    return res.json(result);
   }
 
   @Post('refresh')
   async refresh(@Req() req: express.Request, @Res() res: express.Response) {
     const result = await this.authService.refreshToken(req, res);
-    res.json(result);
+    return res.json(result);
   }
 
   @Post('logout')
   async logout(@Req() req: express.Request, @Res() res: express.Response) {
     const result = await this.authService.logout(req, res);
-    res.json(result);
+    return res.json(result);
   }
 
   @Post('forgot-password')
@@ -79,7 +87,14 @@ export class AuthController {
   }
 
   @Post('reset-password')
-  async resetPassword(@Body() body: { token: string; password: string }) {
-    return this.authService.resetPassword(body.token, body.password);
+  async resetPassword(
+    @Body() body: { token: string; password: string },
+    @Res() res: express.Response,
+  ) {
+    const result = await this.authService.resetPassword(
+      body.token,
+      body.password,
+    );
+    return res.json(result);
   }
 }
