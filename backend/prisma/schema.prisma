@@ -14,73 +14,120 @@ model User {
   name           String
   bio            String?
   avatarUrl      String?
-  isPrivate      Boolean      @default(false)
-  passwordResetToken   String?
+  visibility     Visibility @default(public)
+  passwordResetTokenHash   String?
   passwordResetExpires DateTime?
   refreshTokenHash     String?
   refreshTokenExpires  DateTime?
   createdAt      DateTime     @default(now())
   updatedAt      DateTime     @updatedAt
+
+  twoFactorSecret String?
+  isTwoFactorSecret Boolean   @default(false)
+
+  trustedDevices  TrustedDevice[]
+  emailOtps       EmailOtps[]
+
   projects       Project[]
+  memberships    ProjectMembers[]
   reflections    Reflection[]
-  reactions      Reaction[]
+  votes           Vote[]
   vaultedEntries VaultEntry[]
   collections    Collection[]
+  threadMessages ThreadMessage[]
+
+  @@index([email])
+  @@index([username])
 }
 
 model Project {
   id          String       @id @default(uuid())
   name        String
+  userId      String       
+  user        User         @relation(fields: [userId], references: [id], onDelete: Cascade)
   description String?
   techStack   String[]
-  createdAt   DateTime     @default(now())
-  userId      String
-  updatedAt   DateTime     @updatedAt
-  user        User         @relation(fields: [userId], references: [id])
+  team        ProjectMembers[]
+  codebase    Codebase[]
   reflections Reflection[]
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+}
+
+model ProjectMembers {
+  id        String     @id @default(uuid())
+  role      TeamRole   @default(CONTRIBUTOR)
+
+  userId    String
+  user      User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  projectId String
+  project   Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  
+  joinedAt DateTime @default(now())
+
+  @@unique([userId, projectId])
+}
+
+model Codebase{
+  id           String @id @default(uuid())
+  name         String 
+  repoUrl      String
+  branch       String @default("main")
+
+  indexState   IndexState @default(UNINDEXED)
+  lastIndexedAt DateTime?
+
+  projectId    String
+  project      Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
 }
 
 model Reflection {
-  id            String   @id @default(uuid())
+  id            String        @id @default(uuid())
   title         String
-  category      String // design_decision, technical_challenge, tradeoff, lesson_learned, bug_autopsy, integration_note
-  template_type String? // Structured template type (same as category for new entries)
-  impact        String   @default("minor")
+  category      ReflectionCategory
+  
+  impact        ImpactLevel   @default(MINOR)
   tags          String[]
-  visibility    String   @default("public") // "public" | "private"
+  visibility    Visibility    @default(public)
+  
+  content       String 
 
-  // NEW: Structured fields (JSONB in PostgreSQL)
-  fields Json? // Structured key-value pairs for the selected template
+  fields        Json?
 
-  // OLD: Markdown content (nullable for backward compatibility)
-  content String? // Keep for old migrated entries as fallback
 
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  createdAt     DateTime      @default(now())
+  occurredAt    DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
 
-  projectId String
-  project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  projectId     String
+  project       Project       @relation(fields: [projectId], references: [id], onDelete: Cascade)
 
-  userId String // Author ID (who created this reflection)
-  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId        String 
+  user          User          @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  reactions Reaction[]
-  vaultedBy VaultEntry[]
-  collections CollectionEntry[]
+  votes         Vote[]
+  vaultedBy     VaultEntry[]
+  collections   CollectionEntry[]
+  thread        ReflectionThread?
+
+  @@index([userId, occurredAt(sort: Desc)])
+  @@index([projectId, occurredAt(sort: Desc)])
 }
 
-model Reaction {
+model Vote {
   id        String   @id @default(uuid())
-  type      String // "useful" | "critical" | "applied"
+  value     Int 
   createdAt DateTime @default(now())
 
   entryId String
+  type    VoteType
   entry   Reflection @relation(fields: [entryId], references: [id], onDelete: Cascade)
 
   userId String
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  @@unique([entryId, userId, type])
+  @@unique([entryId, userId])
 }
 
 model VaultEntry {
@@ -100,9 +147,10 @@ model Collection {
   id          String   @id @default(uuid())
   name        String
   description String?
-  visibility  String   @default("private")
+  visibility  Visibility @default(public)
+
   userId      String
-  user        User     @relation(fields: [userId], references: [id])
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   entries     CollectionEntry[]
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
@@ -117,4 +165,90 @@ model CollectionEntry {
   addedAt      DateTime   @default(now())
   
   @@unique([collectionId, entryId])
+}
+
+model ReflectionThread {
+  id           String         @id @default(uuid())
+  reflectionId String         @unique
+  reflection   Reflection     @relation(fields: [reflectionId], references: [id], onDelete: Cascade)
+  messages     ThreadMessage[]
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+}
+
+model ThreadMessage {
+  id        String           @id @default(uuid())
+  threadId  String
+  thread    ReflectionThread @relation(fields: [threadId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  body      String
+  createdAt DateTime         @default(now())
+}
+
+model TrustedDevice {
+  id         String   @id @default(uuid())
+  deviceHash String   @unique
+  browser    String?  
+  ipAddress  String?
+  expiresAt  DateTime
+  createdAt  DateTime @default(now())
+
+  userId     String 
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model EmailOtps {
+  id         String   @id @default(uuid())
+  otpHash    String   
+  expiresAt  DateTime
+  createdAt  DateTime @default(now())
+
+  userId     String
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+enum ReflectionCategory {
+  design_decision
+  technical_challenge
+  tradeoff
+  lesson_learned
+  bug_autopsy
+  integration_note
+}
+
+enum Visibility{
+  public
+  private
+  // Later add close friends
+}
+
+enum TeamRole {
+  OWNER 
+  CONTRIBUTOR 
+  VIEWER
+}
+
+enum IndexState {
+  UNINDEXED
+  QUEUED
+  PROCESSING
+  READY 
+  FAILED 
+}
+
+enum ImpactLevel {
+  MINOR
+  MODERATE
+  CRITICAL
+  BREAKING
+}
+
+enum VoteType {
+  UPVOTE
+  DOWNVOTE
 }

@@ -1,126 +1,199 @@
 "use client";
 
 import {
-    Terminal, Layout, Folder, History, LogOut,
-    Settings, Globe, Loader2, Archive
-} from 'lucide-react';
-import { useAuthStore } from '@/store/useAuthStore';
-import { useRouter, usePathname, useSearchParams } from 'next/navigation';
-import { Suspense, useEffect, useState } from 'react';
-import Link from 'next/link';
-import { useReflectionModal } from '@/store/useReflectionModal';
-import NewReflectionModal from './NewReflectionModal';
-import GlobalSearchBar from './GlobalSearchBar';
+  Terminal,
+  Layout,
+  Folder,
+  History,
+  LogOut,
+  Settings,
+  Globe,
+  Loader2,
+  Archive,
+} from "lucide-react";
+import { useAuthStore } from "@/store/useAuthStore";
+import { useRouter, usePathname, useSearchParams } from "next/navigation";
+import { Suspense, useEffect, useState } from "react";
+import Link from "next/link";
+import { useReflectionModal } from "@/store/useReflectionModal";
+import NewReflectionModal from "./NewReflectionModal";
+import GlobalSearchBar from "./GlobalSearchBar";
 
 interface AppLayoutProps {
-    children: React.ReactNode;
-    title: string;
-    subtitle: string;
-    projectId?: string;
-    onReflectionCreated?: () => void;
-    headerActions?: React.ReactNode;
-    headerLeftContent?: React.ReactNode;
+  children: React.ReactNode;
+  title: string;
+  subtitle: string;
+  projectId?: string;
+  onReflectionCreated?: () => void;
+  headerActions?: React.ReactNode;
+  headerLeftContent?: React.ReactNode;
 }
 
 interface SearchQuerySyncProps {
-    pathname: string;
-    onQuerySync: (query: string) => void;
+  pathname: string;
+  onQuerySync: (query: string) => void;
 }
 
 function SearchQuerySync({ pathname, onQuerySync }: SearchQuerySyncProps) {
-    const router = useRouter();
-    const searchParams = useSearchParams();
+  const router = useRouter();
+  const searchParams = useSearchParams();
 
-    useEffect(() => {
-        const draftValue = searchParams.get('q_draft');
-        const committedValue = searchParams.get('q') ?? '';
+  useEffect(() => {
+    const draftValue = searchParams.get("q_draft");
+    const committedValue = searchParams.get("q") ?? "";
 
-        if (draftValue) {
-            onQuerySync(draftValue);
+    if (draftValue) {
+      onQuerySync(draftValue);
 
-            const params = new URLSearchParams(searchParams.toString());
-            params.delete('q_draft');
-            const queryString = params.toString();
+      const params = new URLSearchParams(searchParams.toString());
+      params.delete("q_draft");
+      const queryString = params.toString();
 
-            router.replace(queryString ? `${pathname}?${queryString}` : pathname);
-            return;
-        }
-
-        onQuerySync(committedValue);
-    }, [searchParams, router, pathname, onQuerySync]);
-
-    return null;
-}
-
-export default function AppLayout({ children, title, subtitle, projectId: preSelectedProjectId, onReflectionCreated, headerActions, headerLeftContent }: AppLayoutProps) {
-    const { user, logout, token, _hasHydrated } = useAuthStore();
-    const { isOpen, close, projectId: modalProjectId, initialData } = useReflectionModal();
-    const router = useRouter();
-    const pathname = usePathname();
-    const [searchQuery, setSearchQuery] = useState('');
-    const [isSidebarHovered, setIsSidebarHovered] = useState(false);
-    const isSidebarOpen = isSidebarHovered;
-    const isVaultPage = pathname.startsWith('/vault');
-    const isFeedPage = pathname.startsWith('/feed');
-    const isProjectsPage = pathname.startsWith('/projects');
-
-    const showSearch = isFeedPage || isProjectsPage; // Show on Feed and Projects
-
-    const searchTargetPath = isVaultPage ? '/vault' : isProjectsPage ? '/projects' : '/feed';
-    const searchPlaceholder = isVaultPage
-        ? 'Search your Vault... (Title, Content)'
-        : isProjectsPage
-            ? 'Search your Projects... (Name, Stack)'
-            : isFeedPage
-                ? 'Search the Feed... (Title, Tags, Author)'
-                : 'Search reflections...';
-    useEffect(() => {
-        if (!_hasHydrated) return;
-        if (!token && !isFeedPage) { router.push('/login'); }
-    }, [token, router, _hasHydrated, isFeedPage]);
-
-    const handleSearch = (e: React.FormEvent) => {
-        e.preventDefault();
-        const value = searchQuery.trim();
-        if (!value) return;
-
-        const params = (isFeedPage || isVaultPage)
-            ? new URLSearchParams(window.location.search)
-            : new URLSearchParams();
-
-        params.set('q', value);
-        params.delete('q_draft');
-        router.push(`${searchTargetPath}?${params.toString()}`);
-    };
-
-    if (!_hasHydrated || (token && !user)) {
-        return (
-            <div style={{ height: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#f5f2eb' }}>
-                <Loader2 className="animate-spin" size={32} color="#c8852a" />
-            </div>
-        );
+      router.replace(queryString ? `${pathname}?${queryString}` : pathname);
+      return;
     }
 
-    // Allow feed page for unauthenticated users; block all others
-    if (!user && !isFeedPage) return null;
+    onQuerySync(committedValue);
+  }, [searchParams, router, pathname, onQuerySync]);
 
-    const initials = user?.name?.split(' ').map((n: string) => n[0]).join('').toUpperCase().slice(0, 2) ?? '';
+  return null;
+}
 
-    const navItems = [
-        { id: 'feed', icon: <Globe size={16} />, label: 'Community Feed', href: '/feed' },
-        { id: 'dashboard', icon: <Layout size={16} />, label: 'Dashboard', href: '/dashboard' },
-        { id: 'projects', icon: <Folder size={16} />, label: 'My Projects', href: '/projects' },
-        { id: 'vault', icon: <Archive size={16} />, label: 'Vault', href: '/vault' },
-        { id: 'reflections', icon: <History size={16} />, label: 'History', href: '/history' },
-        { id: 'settings', icon: <Settings size={16} />, label: 'Settings', href: '/settings' },
-    ];
+export default function AppLayout({
+  children,
+  title,
+  subtitle,
+  projectId: preSelectedProjectId,
+  onReflectionCreated,
+  headerActions,
+  headerLeftContent,
+}: AppLayoutProps) {
+  const { user, logout, token, _hasHydrated } = useAuthStore();
+  const {
+    isOpen,
+    close,
+    projectId: modalProjectId,
+    initialData,
+  } = useReflectionModal();
+  const router = useRouter();
+  const pathname = usePathname();
+  const [searchQuery, setSearchQuery] = useState("");
+  const [isSidebarHovered, setIsSidebarHovered] = useState(false);
+  const isSidebarOpen = isSidebarHovered;
+  const isVaultPage = pathname.startsWith("/vault");
+  const isFeedPage = pathname.startsWith("/feed");
+  const isProjectsPage = pathname.startsWith("/projects");
 
+  const showSearch = isFeedPage || isProjectsPage; // Show on Feed and Projects
+
+  const searchTargetPath = isVaultPage
+    ? "/vault"
+    : isProjectsPage
+      ? "/projects"
+      : "/feed";
+  const searchPlaceholder = isVaultPage
+    ? "Search your Vault... (Title, Content)"
+    : isProjectsPage
+      ? "Search your Projects... (Name, Stack)"
+      : isFeedPage
+        ? "Search the Feed... (Title, Tags, Author)"
+        : "Search reflections...";
+  useEffect(() => {
+    if (!_hasHydrated) return;
+    if (!token && !isFeedPage) {
+      router.push("/login");
+    }
+  }, [token, router, _hasHydrated, isFeedPage]);
+
+  const handleSearch = (e: React.FormEvent) => {
+    e.preventDefault();
+    const value = searchQuery.trim();
+    if (!value) return;
+
+    const params =
+      isFeedPage || isVaultPage
+        ? new URLSearchParams(window.location.search)
+        : new URLSearchParams();
+
+    params.set("q", value);
+    params.delete("q_draft");
+    router.push(`${searchTargetPath}?${params.toString()}`);
+  };
+
+  if (!_hasHydrated || (token && !user)) {
     return (
-        <div style={{ position: 'relative', height: '100vh', fontFamily: "'Geist', system-ui, sans-serif", background: '#f5f2eb', overflow: 'hidden' }}>
-            <Suspense fallback={null}>
-                <SearchQuerySync pathname={pathname} onQuerySync={setSearchQuery} />
-            </Suspense>
-            <style>{`
+      <div
+        style={{
+          height: "100vh",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          background: "#f5f2eb",
+        }}
+      >
+        <Loader2 className="animate-spin" size={32} color="#c8852a" />
+      </div>
+    );
+  }
+
+  // Allow feed page for unauthenticated users; block all others
+  if (!user && !isFeedPage) return null;
+
+  const initials =
+    user?.name
+      ?.split(" ")
+      .map((n: string) => n[0])
+      .join("")
+      .toUpperCase()
+      .slice(0, 2) ?? "";
+
+  const navItems = [
+    {
+      id: "feed",
+      icon: <Globe size={16} />,
+      label: "Community Feed",
+      href: "/feed",
+    },
+    {
+      id: "projects",
+      icon: <Folder size={16} />,
+      label: "My Projects",
+      href: "/projects",
+    },
+    {
+      id: "vault",
+      icon: <Archive size={16} />,
+      label: "Vault",
+      href: "/vault",
+    },
+    {
+      id: "reflections",
+      icon: <History size={16} />,
+      label: "History",
+      href: "/history",
+    },
+    {
+      id: "settings",
+      icon: <Settings size={16} />,
+      label: "Settings",
+      href: "/settings",
+    },
+  ];
+
+  return (
+    <div
+      style={{
+        position: "relative",
+        height: "100vh",
+        fontFamily: "'Geist', system-ui, sans-serif",
+        background: "#f5f2eb",
+        overflow: "hidden",
+      }}
+    >
+      <Suspense fallback={null}>
+        <SearchQuerySync pathname={pathname} onQuerySync={setSearchQuery} />
+      </Suspense>
+      <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Geist:wght@300;400;500&family=DM+Mono:wght@400;500&display=swap');
         :root {
           --ink: #0e0d0b; --paper: #f5f2eb; --paper-dark: #ece8df;
@@ -150,139 +223,271 @@ export default function AppLayout({ children, title, subtitle, projectId: preSel
         .fade-up-3 { animation-delay: 0.15s; }
       `}</style>
 
-            {/* ── Sidebar ── */}
-            <aside style={{
-                width: isSidebarOpen ? 220 : 70, background: '#ece8df',
-                borderRight: '1px solid var(--border)',
-                display: 'flex', flexDirection: 'column',
-                padding: isSidebarOpen ? '24px 16px' : '24px 10px',
-                position: 'fixed',
-                left: 0,
-                top: 0,
-                bottom: 0,
-                zIndex: 40,
-                transition: 'width 0.2s ease, padding 0.2s ease',
-                overflow: 'hidden',
+      {/* ── Sidebar ── */}
+      <aside
+        style={{
+          width: isSidebarOpen ? 220 : 70,
+          background: "#ece8df",
+          borderRight: "1px solid var(--border)",
+          display: "flex",
+          flexDirection: "column",
+          padding: isSidebarOpen ? "24px 16px" : "24px 10px",
+          position: "fixed",
+          left: 0,
+          top: 0,
+          bottom: 0,
+          zIndex: 40,
+          transition: "width 0.2s ease, padding 0.2s ease",
+          overflow: "hidden",
+        }}
+        onMouseEnter={() => setIsSidebarHovered(true)}
+        onMouseLeave={() => setIsSidebarHovered(false)}
+      >
+        {/* Logo */}
+        <Link
+          href="/"
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 9,
+            marginBottom: 36,
+            paddingLeft: isSidebarOpen ? 4 : 0,
+            justifyContent: isSidebarOpen ? "flex-start" : "center",
+            textDecoration: "none",
+          }}
+        >
+          <div
+            style={{
+              width: 28,
+              height: 28,
+              background: "#0e0d0b",
+              borderRadius: 6,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
             }}
-                onMouseEnter={() => setIsSidebarHovered(true)}
-                onMouseLeave={() => setIsSidebarHovered(false)}
+          >
+            <Terminal size={14} color="#f5f2eb" />
+          </div>
+          {isSidebarOpen && (
+            <span
+              style={{
+                fontFamily: "var(--mono)",
+                fontSize: 14,
+                fontWeight: 500,
+                color: "#0e0d0b",
+                letterSpacing: "-0.01em",
+              }}
             >
-                {/* Logo */}
-                <Link href="/" style={{ display: 'flex', alignItems: 'center', gap: 9, marginBottom: 36, paddingLeft: isSidebarOpen ? 4 : 0, justifyContent: isSidebarOpen ? 'flex-start' : 'center', textDecoration: 'none' }}>
-                    <div style={{ width: 28, height: 28, background: '#0e0d0b', borderRadius: 6, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                        <Terminal size={14} color="#f5f2eb" />
-                    </div>
-                    {isSidebarOpen && (
-                        <span style={{ fontFamily: 'var(--mono)', fontSize: 14, fontWeight: 500, color: '#0e0d0b', letterSpacing: '-0.01em' }}>TraceVault</span>
-                    )}
-                </Link>
+              TraceVault
+            </span>
+          )}
+        </Link>
 
-                {/* Nav */}
-                <nav style={{ display: 'flex', flexDirection: 'column', gap: 2, flex: 1 }}>
-                    {navItems.map(item => (
-                        <Link
-                            key={item.id}
-                            href={item.href}
-                            className={`nav-btn ${pathname === item.href ? 'active' : ''}`}
-                            title={item.label}
-                            style={{ justifyContent: isSidebarOpen ? 'flex-start' : 'center', padding: isSidebarOpen ? '9px 14px' : '9px 10px' }}
-                        >
-                            {item.icon}
-                            {isSidebarOpen && item.label}
-                        </Link>
-                    ))}
-                </nav>
-
-                {/* User + logout */}
-                <div style={{ borderTop: '1px solid var(--border)', paddingTop: 16 }}>
-                    {user ? (
-                        <>
-                            <Link
-                                href={`/u/${user.username}`}
-                                title="View profile"
-                                style={{
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    justifyContent: isSidebarOpen ? 'flex-start' : 'center',
-                                    gap: 10,
-                                    marginBottom: 12,
-                                    padding: isSidebarOpen ? '0' : '2px 0',
-                                    borderRadius: 8,
-                                    textDecoration: 'none',
-                                }}
-                            >
-                                <div style={{ width: 32, height: 32, borderRadius: '50%', background: '#0e0d0b', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'var(--mono)', fontSize: 12, color: '#f5f2eb', fontWeight: 500, flexShrink: 0 }}>
-                                    {initials}
-                                </div>
-                                {isSidebarOpen && (
-                                    <div style={{ overflow: 'hidden' }}>
-                                        <p style={{ fontSize: 13, fontWeight: 500, color: '#0e0d0b', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{user.name}</p>
-                                        <p style={{ fontFamily: 'var(--mono)', fontSize: 10, color: 'var(--muted)' }}>Engineer</p>
-                                    </div>
-                                )}
-                            </Link>
-                            <button
-                                onClick={async () => { await logout(); router.push('/login'); }}
-                                title="Sign out"
-                                style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: isSidebarOpen ? 'flex-start' : 'center', gap: 8, padding: '8px 10px', border: 'none', background: 'transparent', cursor: 'pointer', fontFamily: 'var(--mono)', fontSize: 11, color: 'var(--muted)', borderRadius: 6, transition: 'color 0.15s', letterSpacing: '0.04em' }}
-                            >
-                                <LogOut size={12} /> {isSidebarOpen && 'Sign out'}
-                            </button>
-                        </>
-                    ) : (
-                        <Link
-                            href="/login"
-                            title="Sign in"
-                            className="nav-btn"
-                            style={{ justifyContent: isSidebarOpen ? 'flex-start' : 'center', padding: isSidebarOpen ? '9px 14px' : '9px 10px' }}
-                        >
-                            <LogOut size={12} />
-                            {isSidebarOpen && 'Sign in'}
-                        </Link>
-                    )}
-                </div>
-            </aside>
-
-            {/* ── Main ── */}
-            <main
-                aria-label={`${title} ${subtitle}`}
-                style={{ marginLeft: 70, width: 'calc(100% - 70px)', height: '100vh', overflowY: 'auto', display: 'flex', flexDirection: 'column' }}
+        {/* Nav */}
+        <nav
+          style={{ display: "flex", flexDirection: "column", gap: 2, flex: 1 }}
+        >
+          {navItems.map((item) => (
+            <Link
+              key={item.id}
+              href={item.href}
+              className={`nav-btn ${pathname === item.href ? "active" : ""}`}
+              title={item.label}
+              style={{
+                justifyContent: isSidebarOpen ? "flex-start" : "center",
+                padding: isSidebarOpen ? "9px 14px" : "9px 10px",
+              }}
             >
-                <div style={{ padding: '14px 28px 24px', display: 'flex', justifyContent: headerLeftContent ? 'space-between' : 'flex-end', alignItems: 'flex-end', gap: 16 }}>
-                    {headerLeftContent && (
-                        <div style={{ flex: 1, minWidth: 0, display: 'flex', justifyContent: 'flex-start', paddingLeft: 156 }}>
-                            {headerLeftContent}
-                        </div>
-                    )}
-                    <div style={{ width: showSearch ? '36%' : 'auto', minWidth: showSearch ? 420 : 0, maxWidth: 560, flexShrink: 0 }}>
-                        {showSearch ? (
-                            <GlobalSearchBar
-                                value={searchQuery}
-                                onChange={setSearchQuery}
-                                onSubmit={handleSearch}
-                                placeholder={searchPlaceholder}
-                                rightActions={headerActions}
-                            />
-                        ) : (
-                            <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
-                                {headerActions}
-                            </div>
-                        )}
-                    </div>
-                </div>
+              {item.icon}
+              {isSidebarOpen && item.label}
+            </Link>
+          ))}
+        </nav>
 
-                <div style={{ padding: '0 28px 24px', display: 'flex', flexDirection: 'column', gap: 24 }}>
-                    {children}
+        {/* User + logout */}
+        <div style={{ borderTop: "1px solid var(--border)", paddingTop: 16 }}>
+          {user ? (
+            <>
+              <Link
+                href={`/u/${user.username}`}
+                title="View profile"
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: isSidebarOpen ? "flex-start" : "center",
+                  gap: 10,
+                  marginBottom: 12,
+                  padding: isSidebarOpen ? "0" : "2px 0",
+                  borderRadius: 8,
+                  textDecoration: "none",
+                }}
+              >
+                <div
+                  style={{
+                    width: 32,
+                    height: 32,
+                    borderRadius: "50%",
+                    background: "#0e0d0b",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    fontFamily: "var(--mono)",
+                    fontSize: 12,
+                    color: "#f5f2eb",
+                    fontWeight: 500,
+                    flexShrink: 0,
+                  }}
+                >
+                  {initials}
                 </div>
-            </main>
-
-            <NewReflectionModal 
-                isOpen={isOpen} 
-                onClose={close} 
-                preSelectedProjectId={modalProjectId || preSelectedProjectId}
-                initialData={initialData}
-                onSuccess={onReflectionCreated}
-            />
+                {isSidebarOpen && (
+                  <div style={{ overflow: "hidden" }}>
+                    <p
+                      style={{
+                        fontSize: 13,
+                        fontWeight: 500,
+                        color: "#0e0d0b",
+                        whiteSpace: "nowrap",
+                        overflow: "hidden",
+                        textOverflow: "ellipsis",
+                      }}
+                    >
+                      {user.name}
+                    </p>
+                    <p
+                      style={{
+                        fontFamily: "var(--mono)",
+                        fontSize: 10,
+                        color: "var(--muted)",
+                      }}
+                    >
+                      Engineer
+                    </p>
+                  </div>
+                )}
+              </Link>
+              <button
+                onClick={async () => {
+                  await logout();
+                  router.push("/login");
+                }}
+                title="Sign out"
+                style={{
+                  width: "100%",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: isSidebarOpen ? "flex-start" : "center",
+                  gap: 8,
+                  padding: "8px 10px",
+                  border: "none",
+                  background: "transparent",
+                  cursor: "pointer",
+                  fontFamily: "var(--mono)",
+                  fontSize: 11,
+                  color: "var(--muted)",
+                  borderRadius: 6,
+                  transition: "color 0.15s",
+                  letterSpacing: "0.04em",
+                }}
+              >
+                <LogOut size={12} /> {isSidebarOpen && "Sign out"}
+              </button>
+            </>
+          ) : (
+            <Link
+              href="/login"
+              title="Sign in"
+              className="nav-btn"
+              style={{
+                justifyContent: isSidebarOpen ? "flex-start" : "center",
+                padding: isSidebarOpen ? "9px 14px" : "9px 10px",
+              }}
+            >
+              <LogOut size={12} />
+              {isSidebarOpen && "Sign in"}
+            </Link>
+          )}
         </div>
-    );
+      </aside>
+
+      {/* ── Main ── */}
+      <main
+        aria-label={`${title} ${subtitle}`}
+        style={{
+          marginLeft: 70,
+          width: "calc(100% - 70px)",
+          height: "100vh",
+          overflowY: "auto",
+          display: "flex",
+          flexDirection: "column",
+        }}
+      >
+        <div
+          style={{
+            padding: "14px 28px 24px",
+            display: "flex",
+            justifyContent: headerLeftContent ? "space-between" : "flex-end",
+            alignItems: "flex-end",
+            gap: 16,
+          }}
+        >
+          {headerLeftContent && (
+            <div
+              style={{
+                flex: 1,
+                minWidth: 0,
+                display: "flex",
+                justifyContent: "flex-start",
+                paddingLeft: 156,
+              }}
+            >
+              {headerLeftContent}
+            </div>
+          )}
+          <div
+            style={{
+              width: showSearch ? "36%" : "auto",
+              minWidth: showSearch ? 420 : 0,
+              maxWidth: 560,
+              flexShrink: 0,
+            }}
+          >
+            {showSearch ? (
+              <GlobalSearchBar
+                value={searchQuery}
+                onChange={setSearchQuery}
+                onSubmit={handleSearch}
+                placeholder={searchPlaceholder}
+                rightActions={headerActions}
+              />
+            ) : (
+              <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
+                {headerActions}
+              </div>
+            )}
+          </div>
+        </div>
+
+        <div
+          style={{
+            padding: "0 28px 24px",
+            display: "flex",
+            flexDirection: "column",
+            gap: 24,
+          }}
+        >
+          {children}
+        </div>
+      </main>
+
+      <NewReflectionModal
+        isOpen={isOpen}
+        onClose={close}
+        preSelectedProjectId={modalProjectId || preSelectedProjectId}
+        initialData={initialData}
+        onSuccess={onReflectionCreated}
+      />
+    </div>
+  );
 }

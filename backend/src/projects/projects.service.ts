@@ -33,7 +33,6 @@ export class ProjectsService {
             id: true,
             createdAt: true,
             category: true,
-            template_type: true,
             impact: true,
             tags: true,
           },
@@ -56,22 +55,27 @@ export class ProjectsService {
             ).createdAt
           : null;
 
-      // Template Breakdown
-      const templateMap: Record<string, number> = {};
+      // Category Breakdown
+      const categoryMap: Record<string, number> = {};
       reflections.forEach((r) => {
-        const type = r.template_type || r.category || 'general';
-        templateMap[type] = (templateMap[type] || 0) + 1;
+        const type = r.category || 'general';
+        categoryMap[type] = (categoryMap[type] || 0) + 1;
       });
-      const templateBreakdown = Object.entries(templateMap)
-        .map(([template_type, count]) => ({ template_type, count }))
+
+      // Optimized
+      const categoryBreakdown = Object.entries(categoryMap)
+        .map(([category, count]) => ({ category, count }))
         .sort((a, b) => b.count - a.count);
 
       // Impact Summary
       const impactSummary = {
-        pivotalCount: reflections.filter((r) => r.impact === 'pivotal').length,
-        significantCount: reflections.filter((r) => r.impact === 'significant')
+        minorCount: reflections.filter((r) => r.impact === 'MINOR').length,
+        moderateCount: reflections.filter((r) => r.impact === 'MODERATE')
           .length,
-        minorCount: reflections.filter((r) => r.impact === 'minor').length,
+        criticalCount: reflections.filter((r) => r.impact === 'CRITICAL')
+          .length,
+        breakingCount: reflections.filter((r) => r.impact === 'BREAKING')
+          .length,
       };
 
       // Top Tags
@@ -93,7 +97,7 @@ export class ProjectsService {
         createdAt: project.createdAt,
         lastActivityAt,
         entryCount,
-        templateBreakdown,
+        categoryBreakdown,
         topTags,
         impactSummary,
       };

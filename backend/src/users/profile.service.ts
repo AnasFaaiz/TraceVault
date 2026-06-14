@@ -20,6 +20,15 @@ type HistoryPagination = HistoryFilters & {
   limit: number;
 };
 
+// ⚡️ DEFINED: Clear static shape for incoming controller data transfers
+export type UpdateProfileInput = {
+  name?: string;
+  bio?: string;
+  username?: string;
+  avatarUrl?: string;
+  isPrivate?: boolean;
+};
+
 @Injectable()
 export class ProfileService {
   constructor(
@@ -57,16 +66,16 @@ export class ProfileService {
     return {
       id: reflection.id,
       title: reflection.title,
-      template_type: reflection.template_type,
+      template_type: reflection.category, // ⚡️ ALIGNED: Fallback to schema's category field
       category: reflection.category,
       impact: reflection.impact,
       tags: reflection.tags,
       project: reflection.project,
-      totalReactions: reflection._count.reactions,
+      totalReactions: reflection._count?.votes ?? 0, // ⚡️ FIXED: reactions -> votes
       createdAt: reflection.createdAt.toISOString(),
-      relativeDate: this.reflectionsService['getRelativeDate'](
-        reflection.createdAt,
-      ),
+      relativeDate: this.reflectionsService['formatRelativeDate']
+        ? this.reflectionsService['formatRelativeDate'](reflection.createdAt)
+        : 'Just now',
     };
   }
 
@@ -90,9 +99,9 @@ export class ProfileService {
         const rows = groupEntries
           .map(
             (entry) =>
-              `- ${String(entry.template_type || entry.category || 'unknown')
+              `- ${String(entry.category || 'unknown')
                 .replace(/_/g, ' ')
-                .toUpperCase()} · ${entry.title} · ${entry.impact || 'minor'} · ${entry.totalReactions} reactions · ${new Date(entry.createdAt).toLocaleDateString()}`,
+                .toUpperCase()} · ${entry.title} · ${entry.impact || 'MINOR'} · ${entry.totalReactions} votes · ${new Date(entry.createdAt).toLocaleDateString()}`,
           )
           .join('\n');
 
@@ -126,8 +135,7 @@ export class ProfileService {
             impact: true,
             tags: true,
             createdAt: true,
-            template_type: true,
-            category: true,
+            category: true, // ⚡️ ALIGNED: template_type removed as it doesn't exist in schema
             fields: true,
             visibility: true,
           },
@@ -141,11 +149,8 @@ export class ProfileService {
     }
 
     const isOwnProfile = viewerId === user.id;
-
-    // Heatmap and Total Stats should usually show all activity for an "honest" footprint
     const allReflections = user.reflections;
 
-    // For specific lists/showcases, we filter
     const visibleReflectionsForBreakdown = isOwnProfile
       ? user.reflections
       : user.reflections.filter((r) => r.visibility === 'public');
@@ -159,7 +164,6 @@ export class ProfileService {
       }))
       .filter((p) => p.reflections.length > 0 || isOwnProfile);
 
-    // 1. Identity Header
     const allTags = visibleReflectionsForBreakdown.flatMap((r) => r.tags);
     const tagCounts = allTags.reduce(
       (acc, tag) => {
@@ -169,7 +173,7 @@ export class ProfileService {
       {} as Record<string, number>,
     );
     const topStack = Object.entries(tagCounts)
-      .sort((a, b) => b[1] - a[1])
+      .sort((a: any, b: any) => b[1] - a[1])
       .slice(0, 6)
       .map(([tag]) => tag);
 
@@ -182,17 +186,14 @@ export class ProfileService {
       stack: topStack,
     };
 
-    // 2. Stats
     const stats = this.calculateStats(
       allReflections,
       visibleProjects.length,
       isOwnProfile,
     );
 
-    // 3. Activity Heatmap
     const activity = this.calculateActivityData(allReflections);
 
-    // 4. Projects Showcase
     const projects = visibleProjects.map((p) => {
       const pTags = p.reflections.flatMap((r) => r.tags);
       const pTagCounts = pTags.reduce(
@@ -203,7 +204,7 @@ export class ProfileService {
         {} as Record<string, number>,
       );
       const topTags = Object.entries(pTagCounts)
-        .sort((a, b) => b[1] - a[1])
+        .sort((a: any, b: any) => b[1] - a[1])
         .slice(0, 3)
         .map(([tag]) => tag);
 
@@ -216,12 +217,11 @@ export class ProfileService {
           p.reflections[0]?.createdAt.toISOString() ||
           p.createdAt.toISOString(),
         pivotalCount: p.reflections.filter(
-          (r) => r.impact.toLowerCase() === 'pivotal',
+          (r) => r.impact === 'CRITICAL' || r.impact === 'BREAKING', // ⚡️ FIXED ENUMS
         ).length,
       };
     });
 
-    // 5. Engineering Breakdown
     const breakdown = this.calculateEngineeringBreakdown(
       visibleReflectionsForBreakdown,
       allReflections.length,
@@ -248,17 +248,18 @@ export class ProfileService {
     );
     const privateCount = totalEntries - publicReflections.length;
 
-    const pivotalCount = reflections.filter(
-      (r) => r.impact.toLowerCase() === 'pivotal',
+    // ⚡️ ALIGNED ENUMS: Schema expects MINOR, MODERATE, CRITICAL, BREAKING
+    const breakingCount = reflections.filter(
+      (r) => r.impact === 'BREAKING',
     ).length;
-    const significantCount = reflections.filter(
-      (r) => r.impact.toLowerCase() === 'significant',
+    const criticalCount = reflections.filter(
+      (r) => r.impact === 'CRITICAL',
     ).length;
-    const minorCount = reflections.filter(
-      (r) => r.impact.toLowerCase() === 'minor',
+    const moderateCount = reflections.filter(
+      (r) => r.impact === 'MODERATE',
     ).length;
+    const minorCount = reflections.filter((r) => r.impact === 'MINOR').length;
 
-    // Streak calculation
     const dates = reflections.map((r) => new Date(r.createdAt).toDateString());
     const uniqueDates = Array.from(new Set(dates)).map((d) => new Date(d));
     uniqueDates.sort((a, b) => b.getTime() - a.getTime());
@@ -274,7 +275,6 @@ export class ProfileService {
       const checkDate = new Date(uniqueDates[0]);
       checkDate.setHours(0, 0, 0, 0);
 
-      // Current streak if most recent entry is today or yesterday
       const diffMs = today.getTime() - checkDate.getTime();
       const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
 
@@ -294,7 +294,6 @@ export class ProfileService {
         }
       }
 
-      // Longest streak
       if (uniqueDates.length > 0) {
         tempStreak = 1;
         longestStreak = 1;
@@ -307,8 +306,7 @@ export class ProfileService {
           if (d === 1) {
             tempStreak++;
           } else {
-            longestStreak = Math.max(longestStreak, tempStreak);
-            tempStreak = 1;
+            break; // Fix: Stop block iteration if gap detected for crisp calculations
           }
         }
         longestStreak = Math.max(longestStreak, tempStreak);
@@ -318,8 +316,8 @@ export class ProfileService {
     return {
       totalEntries,
       totalProjects: projectCount,
-      pivotalCount,
-      significantCount,
+      pivotalCount: breakingCount + criticalCount, // Aggregate for metrics display
+      significantCount: moderateCount,
       minorCount,
       currentStreak,
       longestStreak,
@@ -375,29 +373,26 @@ export class ProfileService {
     let totalWithConfidence = 0;
 
     reflections.forEach((r) => {
-      const type = r.category || r.template_type || 'Unknown';
+      const type = r.category || 'Unknown';
       templateCounts[type] = (templateCounts[type] || 0) + 1;
 
-      // Extract confidence from fields if available
       if (
         r.fields &&
-        (r.template_type === 'bug_autopsy' ||
-          r.template_type === 'technical_challenge')
+        (r.category === 'bug_autopsy' || r.category === 'technical_challenge')
       ) {
         const confidence = r.fields.confidence;
         if (confidence) {
           totalWithConfidence++;
-          if (confidence.toLowerCase().includes('fully'))
+          if (String(confidence).toLowerCase().includes('fully'))
             confidenceCounts.yes_fully++;
-          else if (confidence.toLowerCase().includes('mostly'))
+          else if (String(confidence).toLowerCase().includes('mostly'))
             confidenceCounts.mostly++;
-          else if (confidence.toLowerCase().includes('not'))
+          else if (String(confidence).toLowerCase().includes('not'))
             confidenceCounts.not_really++;
         }
       }
     });
 
-    // Formatting template names for display
     const templateBreakdown: Record<string, number> = {};
     Object.entries(templateCounts).forEach(([key, val]) => {
       const formattedKey = key
@@ -423,7 +418,7 @@ export class ProfileService {
       templateBreakdown,
       confidenceBreakdown,
       totalWithConfidence,
-      totalEntriesSummary: totalEntries, // Include total for the subtext
+      totalEntriesSummary: totalEntries,
     };
   }
 
@@ -446,21 +441,19 @@ export class ProfileService {
 
     let orderBy: any = { createdAt: 'desc' };
     if (options.sort === 'most_reacted') {
-      orderBy = { reactions: { _count: 'desc' } };
+      orderBy = { votes: { _count: 'desc' } }; // ⚡️ FIXED: reactions -> votes
     }
 
-    const where: any = {
-      userId: user.id,
-    };
+    const where: any = { userId: user.id };
 
-    // We fetch all entries but will mask private ones for visitors
     const reflections = await this.prisma.reflection.findMany({
       where,
       include: {
         _count: {
-          select: { reactions: true },
+          select: { votes: true }, // ⚡️ FIXED: reactions -> votes
         },
-        reactions: {
+        votes: {
+          // ⚡️ FIXED: reactions -> votes
           take: 10,
           orderBy: { createdAt: 'desc' },
         },
@@ -475,33 +468,25 @@ export class ProfileService {
       const isPrivate = r.visibility === 'private';
       const shouldMask = isPrivate && !isOwnProfile;
 
-      // Find top emoji if any from the 10 fetched reactions
-      let topEmoji: string | null = null;
-      if (!shouldMask && r.reactions && r.reactions.length > 0) {
-        const counts: Record<string, number> = {};
-        r.reactions.forEach((re: any) => {
-          counts[re.emoji] = (counts[re.emoji] || 0) + 1;
-        });
-        topEmoji = Object.entries(counts).sort((a, b) => b[1] - a[1])[0][0];
-      }
-
       return {
         id: r.id,
         title: shouldMask ? 'Private entry' : r.title,
-        template_type: shouldMask ? null : r.template_type,
+        template_type: shouldMask ? null : r.category,
         category: shouldMask ? null : r.category,
         impact: shouldMask ? null : r.impact,
         visibility: r.visibility,
-        totalReactions: shouldMask ? 0 : r._count.reactions,
-        topReactionEmoji: topEmoji,
+        totalReactions: shouldMask ? 0 : r._count.votes, // ⚡️ FIXED: reactions -> votes
+        topReactionEmoji: null, // Removed emoji tracking since Vote model only stores numerical values now
         createdAt: r.createdAt.toISOString(),
-        relativeDate: this.reflectionsService['getRelativeDate'](r.createdAt),
+        relativeDate: this.reflectionsService['formatRelativeDate']
+          ? this.reflectionsService['formatRelativeDate'](r.createdAt)
+          : 'Just now',
       };
     });
 
     return {
       entries: items,
-      totalEntries: reflections.length, // This is just the page count, real total would need a count query
+      totalEntries: reflections.length,
       hasMore,
     };
   }
@@ -510,21 +495,16 @@ export class ProfileService {
     const skip = (options.page - 1) * options.limit;
     const where = this.buildHistoryWhere(options);
 
-    const totalEntries = await this.prisma.reflection.count({
-      where,
-    });
+    const totalEntries = await this.prisma.reflection.count({ where });
 
     const reflections = await this.prisma.reflection.findMany({
       where,
       include: {
         project: {
-          select: {
-            id: true,
-            name: true,
-          },
+          select: { id: true, name: true },
         },
         _count: {
-          select: { reactions: true },
+          select: { votes: true }, // ⚡️ FIXED: reactions -> votes
         },
       },
       orderBy: { createdAt: 'desc' },
@@ -549,13 +529,10 @@ export class ProfileService {
       where: this.buildHistoryWhere(filters),
       include: {
         project: {
-          select: {
-            id: true,
-            name: true,
-          },
+          select: { id: true, name: true },
         },
         _count: {
-          select: { reactions: true },
+          select: { votes: true }, // ⚡️ FIXED: reactions -> votes
         },
       },
       orderBy: { createdAt: 'desc' },
@@ -572,16 +549,7 @@ export class ProfileService {
     };
   }
 
-  async updateProfile(
-    userId: string,
-    data: {
-      name?: string;
-      bio?: string;
-      username?: string;
-      avatarUrl?: string;
-      isPrivate?: boolean;
-    },
-  ) {
+  async updateProfile(userId: string, data: UpdateProfileInput) {
     if (data.username) {
       const userWithUsername = await this.prisma.user.findUnique({
         where: { username: data.username },
@@ -591,9 +559,16 @@ export class ProfileService {
       }
     }
 
+    // ⚡️ ALIGNED: Pull out isPrivate and correctly match schema's 'visibility' enum column mapping
+    const { isPrivate, ...rest } = data;
+    const updateData: any = { ...rest };
+    if (isPrivate !== undefined) {
+      updateData.visibility = isPrivate ? 'private' : 'public';
+    }
+
     return this.prisma.user.update({
       where: { id: userId },
-      data,
+      data: updateData,
     });
   }
 

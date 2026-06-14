@@ -12,16 +12,17 @@ import {
   BadRequestException,
 } from '@nestjs/common';
 import { ReflectionsService } from './reflections.service';
+import { ThreadsService, ThreadMessageDto } from './threads.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { OptionalJwtAuthGuard } from '../auth/optional-jwt-auth.guard';
 
 @Controller('reflections')
 export class ReflectionsController {
-  constructor(private reflectionsService: ReflectionsService) {}
+  constructor(
+    private reflectionsService: ReflectionsService,
+    private threadsService: ThreadsService,
+  ) {}
 
-  /**
-   * Create a new reflection or social update
-   */
   @UseGuards(JwtAuthGuard)
   @Post()
   async createReflection(
@@ -32,26 +33,28 @@ export class ReflectionsController {
       title: string;
       entryType?: 'reflection' | 'social_post';
       category?: string;
-      template_type?: string;
       fields?: Record<string, any>;
       tags?: string[];
       type?: string;
       content?: string;
       impact?: string;
-      tools?: string[];
     },
   ) {
     const entryType =
       body.entryType ||
-      (body.category === 'social_post' ? 'social_post' : 'reflection');
+      (body.category?.toLowerCase() === 'social_post' ||
+      body.type?.toLowerCase() === 'social_post'
+        ? 'social_post'
+        : 'reflection');
+
     let category = body.category || body.type;
-    let template_type = body.template_type || body.category || body.type;
 
     if (entryType === 'social_post') {
-      category = category || 'social_post';
-      template_type = template_type || 'social_post';
-    } else if (!category || !template_type) {
-      throw new BadRequestException('category and template_type are required');
+      category = 'SOCIAL_POST';
+    } else if (!category) {
+      throw new BadRequestException(
+        'category fallback type descriptor is required',
+      );
     }
 
     return this.reflectionsService.createReflection(
@@ -59,13 +62,11 @@ export class ReflectionsController {
       body.projectId,
       {
         title: body.title,
-        entryType,
         category,
-        template_type,
         fields: body.fields || {},
         tags: body.tags || [],
         content: body.content,
-        impact: body.impact || 'minor',
+        impact: body.impact,
       },
     );
   }
@@ -110,13 +111,11 @@ export class ReflectionsController {
     @Query('projectId') projectId?: string,
     @Query('scope') scope: 'personal' | 'global' = 'personal',
   ) {
-    const filterCategory = category || type;
-
     return this.reflectionsService.getFilteredReflections({
       userId: scope === 'personal' ? req.user.userId : undefined,
       projectId,
       search: q,
-      category: filterCategory,
+      category: category || type,
       impact,
     });
   }
@@ -157,6 +156,44 @@ export class ReflectionsController {
     );
   }
 
+  @UseGuards(OptionalJwtAuthGuard)
+  @Get(':id/thread')
+  getThread(
+    @Param('id') reflectionId: string,
+    @Query('limit') limit?: string,
+    @Query('before') before?: string,
+  ): Promise<{
+    threadId: string;
+    reflectionId: string;
+    messages: ThreadMessageDto[];
+    hasMore: boolean;
+    nextCursor: string | null;
+  }> {
+    return this.threadsService.getThread(
+      reflectionId,
+      limit ? parseInt(limit) : 30,
+      before,
+    );
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Post(':id/thread/messages')
+  createThreadMessage(
+    @Param('id') reflectionId: string,
+    @Body() body: { body?: string },
+    @Req() req: { user: { userId: string } },
+  ): Promise<ThreadMessageDto> {
+    const messageBody = body.body?.trim();
+    if (!messageBody) {
+      throw new BadRequestException('Message body is required');
+    }
+    return this.threadsService.createMessage(
+      reflectionId,
+      req.user.userId,
+      messageBody,
+    );
+  }
+
   @UseGuards(JwtAuthGuard)
   @Patch(':id')
   updateReflection(
@@ -165,22 +202,17 @@ export class ReflectionsController {
     @Body()
     body: {
       title?: string;
-      entryType?: 'reflection' | 'social_post';
       category?: string;
-      template_type?: string;
       fields?: Record<string, any>;
       tags?: string[];
       type?: string;
       content?: string;
       impact?: string;
-      tools?: string[];
     },
   ) {
     return this.reflectionsService.updateReflection(req.user.userId, id, {
       title: body.title,
-      entryType: body.entryType,
       category: body.category || body.type,
-      template_type: body.template_type,
       fields: body.fields,
       tags: body.tags,
       content: body.content,
@@ -205,7 +237,6 @@ export class ReflectionsController {
     @Query('tags') tags?: string,
     @Query('template_type') templateTypes?: string,
     @Query('impact') impact?: string,
-    @Query('confidence') confidence?: string,
     @Query('page') page?: string,
     @Query('limit') limit?: string,
   ) {
@@ -219,7 +250,6 @@ export class ReflectionsController {
         tags: tagArray,
         templateTypes: templateTypeArray,
         impact,
-        confidence,
       },
       {
         page: page ? parseInt(page) : 1,
@@ -271,13 +301,13 @@ export class ReflectionsController {
   @Post(':id/reactions')
   async toggleReaction(
     @Param('id') entryId: string,
-    @Body() body: { type: 'useful' | 'critical' | 'applied' },
+    @Body() body: { type: 'UPVOTE' | 'DOWNVOTE' },
     @Req() req: { user: { userId: string } },
   ) {
-    return this.reflectionsService.toggleReaction(
+    return this.reflectionsService.toggleVote(
       entryId,
       req.user.userId,
-      body.type,
+      body.type as any,
     );
   }
 

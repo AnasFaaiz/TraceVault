@@ -1,6 +1,13 @@
 "use client";
 
-import { MoreHorizontal, Link, ArrowUp, ArrowDown, Check } from "lucide-react";
+import {
+  MoreHorizontal,
+  Link,
+  ArrowUp,
+  ArrowDown,
+  Check,
+  MessageSquare,
+} from "lucide-react";
 import { useCallback, useState } from "react";
 import React from "react";
 import { ALL_TEMPLATES, getTemplate, TemplateType } from "@/lib/templateDefinitions";
@@ -13,9 +20,6 @@ interface FeedEntry {
   title: string;
   category: string;
   template_type?: string;
-  impact: string;
-  tags: string[];
-  fields?: Record<string, string | string[] | boolean | null | undefined>;
   snippet: string;
   readTime: string;
   confidence: string | null;
@@ -40,6 +44,8 @@ interface FeedEntry {
 
 interface FeedCardProps {
   entry: FeedEntry;
+  onOpen: () => void;
+  onOpenChat: () => void;
 }
 
 // Dynamic color generator for tags/badges
@@ -62,7 +68,7 @@ const getBadgeStyle = (text: string) => {
   }
 };
 
-export default function FeedCard({ entry }: FeedCardProps) {
+export default function FeedCard({ entry, onOpen, onOpenChat }: FeedCardProps) {
   const user = useAuthStore((state) => state.user);
   const [upCount, setUpCount] = useState(entry.reactions.useful.count);
   const [downCount, setDownCount] = useState(entry.reactions.critical.count);
@@ -173,12 +179,26 @@ export default function FeedCard({ entry }: FeedCardProps) {
     }
   };
 
+  const handleCardKey = (event: React.KeyboardEvent<HTMLDivElement>) => {
+    if (event.key === "Enter" || event.key === " ") {
+      event.preventDefault();
+      onOpen();
+    }
+  };
+
   return (
-    <div className={styles.feedCard}>
+    <div
+      className={`${styles.feedCard} ${styles.clickableCard}`}
+      onClick={onOpen}
+      onKeyDown={handleCardKey}
+      role="button"
+      tabIndex={0}
+    >
       <button
         type="button"
         className={styles.moreButton}
         aria-label="More options"
+        onClick={(event) => event.stopPropagation()}
       >
         <MoreHorizontal size={16} />
       </button>
@@ -222,7 +242,10 @@ export default function FeedCard({ entry }: FeedCardProps) {
             <button
               type="button"
               className={`${styles.iconButton} ${styles.btnUp} ${userVote === "up" ? styles.activeUp : ""}`}
-              onClick={handleUpvote}
+              onClick={(event) => {
+                event.stopPropagation();
+                handleUpvote();
+              }}
               aria-label="Upvote"
               disabled={!user || isVoting}
             >
@@ -239,7 +262,10 @@ export default function FeedCard({ entry }: FeedCardProps) {
             <button
               type="button"
               className={`${styles.iconButton} ${styles.btnDown} ${userVote === "down" ? styles.activeDown : ""}`}
-              onClick={handleDownvote}
+              onClick={(event) => {
+                event.stopPropagation();
+                handleDownvote();
+              }}
               aria-label="Downvote"
               disabled={!user || isVoting}
             >
@@ -256,32 +282,35 @@ export default function FeedCard({ entry }: FeedCardProps) {
         <div className={styles.actionGroup}>
           <button
             type="button"
+            className={`${styles.iconButton} ${styles.btnChat}`}
+            onClick={(event) => {
+              event.stopPropagation();
+              onOpenChat();
+            }}
+            aria-label="Open chat"
+          >
+            <MessageSquare size={18} />
+          </button>
+          <button
+            type="button"
             className={`${styles.iconButton} ${styles.btnVault} ${isVaulted ? styles.activeVault : ""}`}
-            onClick={handleVaultToggle}
+            onClick={(event) => {
+              event.stopPropagation();
+              void handleVaultToggle();
+            }}
             aria-label={isVaulted ? "Remove from vault" : "Add to vault"}
             disabled={!user || isVaultUpdating}
           >
-            <svg
-              width="18"
-              height="18"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2.2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              aria-hidden="true"
-            >
-              <polyline points="21 8 21 21 3 21 3 8" />
-              <rect x="1" y="3" width="22" height="5" />
-              <line x1="10" y1="12" x2="14" y2="12" />
-            </svg>
+            {isVaulted ? <Check size={18} /> : <Check size={18} />}
           </button>
 
           <button
             type="button"
             className={`${styles.iconButton} ${styles.btnLink}`}
-            onClick={handleCopyLink}
+            onClick={(event) => {
+              event.stopPropagation();
+              void handleCopyLink();
+            }}
             aria-label={copied ? "Link copied" : "Copy link"}
           >
             {copied ? (

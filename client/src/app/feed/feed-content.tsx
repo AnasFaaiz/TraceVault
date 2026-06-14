@@ -10,6 +10,7 @@ import FeedCard from "@/components/feed/FeedCard";
 import FiltersPanel from "@/components/feed/FiltersPanel";
 import SkeletonCard from "@/components/feed/SkeletonCard";
 import SocialPostCard from "@/components/feed/SocialPostCard";
+import FeedOverlay from "@/components/feed/FeedOverlay";
 import Toast, { ToastType } from "@/components/Toast";
 import styles from "./feed.module.css";
 
@@ -87,6 +88,8 @@ export function FeedContent() {
   const [composerTitle, setComposerTitle] = useState("");
   const [composerBody, setComposerBody] = useState("");
   const [isPublishing, setIsPublishing] = useState(false);
+  const [activeEntryId, setActiveEntryId] = useState<string | null>(null);
+  const [chatFocus, setChatFocus] = useState(false);
   const [toast, setToast] = useState<{
     message: string;
     type: ToastType;
@@ -282,6 +285,16 @@ export function FeedContent() {
     }
   };
 
+  const openOverlay = (entryId: string, focusChatPanel = false) => {
+    setActiveEntryId(entryId);
+    setChatFocus(focusChatPanel);
+  };
+
+  const closeOverlay = () => {
+    setActiveEntryId(null);
+    setChatFocus(false);
+  };
+
   return (
     <div className={styles.feedLayout}>
       <div className={styles.feedMainColumn}>
@@ -443,9 +456,19 @@ export function FeedContent() {
           {!loading && !error && entries.length > 0 &&
             entries.map((entry) =>
               entry.type === "social_post" ? (
-                <SocialPostCard key={entry.id} entry={entry} />
+                <SocialPostCard
+                  key={entry.id}
+                  entry={entry}
+                  onOpen={() => openOverlay(entry.id, false)}
+                  onOpenChat={() => openOverlay(entry.id, true)}
+                />
               ) : (
-                <FeedCard key={entry.id} entry={entry} />
+                <FeedCard
+                  key={entry.id}
+                  entry={entry}
+                  onOpen={() => openOverlay(entry.id, false)}
+                  onOpenChat={() => openOverlay(entry.id, true)}
+                />
               ),
             )}
         </div>
@@ -497,7 +520,19 @@ export function FeedContent() {
           {!railLoading && !railError && trending.length > 0 && (
             <ul className={styles.rankedList}>
               {trending.map((entry, index) => (
-                <li key={entry.id} className={styles.trendingItem}>
+                <li
+                  key={entry.id}
+                  className={styles.trendingItem}
+                  onClick={() => openOverlay(entry.id, false)}
+                  role="button"
+                  tabIndex={0}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter" || event.key === " ") {
+                      event.preventDefault();
+                      openOverlay(entry.id, false);
+                    }
+                  }}
+                >
                   <div className={styles.trendingTitleRow}>
                     <span className={styles.rankNumber}>{index + 1}</span>
                     <span className={styles.rankedText}>
@@ -541,6 +576,13 @@ export function FeedContent() {
           onClose={() => setToast(null)}
         />
       )}
+      <FeedOverlay
+        entryId={activeEntryId}
+        isOpen={Boolean(activeEntryId)}
+        focusChat={chatFocus}
+        onFocusHandled={() => setChatFocus(false)}
+        onClose={closeOverlay}
+      />
     </div>
   );
 }

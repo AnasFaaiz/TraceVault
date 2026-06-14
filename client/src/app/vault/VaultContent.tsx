@@ -4,7 +4,6 @@ import { useEffect, useRef, useState, useCallback, useMemo } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import api from "@/lib/api";
 import { useAuthStore } from "@/store/useAuthStore";
-import AppLayout from "@/components/dashboard/AppLayout";
 import FeedCard from "@/components/feed/FeedCard";
 import SkeletonCard from "@/components/feed/SkeletonCard";
 import styles from "./vault.module.css";

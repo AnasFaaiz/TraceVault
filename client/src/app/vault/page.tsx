@@ -1,8 +1,8 @@
-import { Suspense } from 'react';
-import VaultContent from './VaultContent';
-import AppLayout from '@/components/dashboard/AppLayout';
-import SkeletonCard from '@/components/feed/SkeletonCard';
-import styles from './vault.module.css';
+import { Suspense } from "react";
+import VaultContent from "./VaultContent";
+import AppLayout from "@/components/dashboard/AppLayout";
+import SkeletonCard from "@/components/feed/SkeletonCard";
+import styles from "./vault.module.css";
 
 function VaultSkeleton() {
   return (

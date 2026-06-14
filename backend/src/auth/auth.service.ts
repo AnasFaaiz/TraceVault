@@ -9,7 +9,12 @@ import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import { randomBytes, createHash } from 'crypto';
 import { EmailService } from '../email/email.service';
+import { authenticator } from '@otplib/preset-default';
+import * as QRCode from 'qrcode';
 import type { Response, Request } from 'express';
+import { VerifyMfaDto } from './dto/mfa.dto';
+import { LoginDto } from './dto/login.dto';
+import { ref } from 'process';
 
 @Injectable()
 export class AuthService {
@@ -19,6 +24,19 @@ export class AuthService {
     private configService: ConfigService,
     private emailService: EmailService,
   ) {}
+
+  private hashToken(token: string): string {
+    return createHash('sha256').update(token).digest('hex');
+  }
+
+  private setRefreshTokenCookie(res: Response, token: string, expires: Date) {
+    res.cookie('refreshToken', token, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+      expires: expires,
+    });
+  }
 
   async register(
     email: string,
@@ -43,126 +61,223 @@ export class AuthService {
       username,
     });
 
-    if (
-      !user ||
-      typeof user !== 'object' ||
-      !('id' in user) ||
-      !('email' in user) ||
-      !('name' in user) ||
-      !('username' in user)
-    ) {
-      throw new BadRequestException('User creation failed');
-    }
-
-    const {
-      id,
-      email: userEmail,
-      name: userName,
-      username: userUsername,
-    } = user as { id: string; email: string; name: string; username: string };
-    const token = this.jwtService.sign({
-      sub: id,
-      email: userEmail,
-    });
-    // Generate refresh token
+    const token = this.jwtService.sign({ sub: user.id, email: user.email });
     const refreshToken = randomBytes(64).toString('hex');
-    const refreshTokenHash = createHash('sha256')
-      .update(refreshToken)
-      .digest('hex');
-    const refreshTokenExpires = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000); // 30 days
+    const refreshTokenExpires = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
+
     await this.usersService.setRefreshToken(
-      id,
-      refreshTokenHash,
+      user.id,
+      this.hashToken(refreshToken),
       refreshTokenExpires,
     );
-    if (res) {
-      res.cookie('refreshToken', refreshToken, {
-        httpOnly: true,
-        secure: true,
-        sameSite: 'lax',
-        expires: refreshTokenExpires,
-      });
-    }
+
+    if (res) this.setRefreshTokenCookie(res, refreshToken, refreshTokenExpires);
+
     return {
-      message: 'User registered successfully',
+      message: 'User registered successful',
       user: {
-        id,
-        email: userEmail,
-        name: userName,
-        username: userUsername,
+        id: user.id,
+        email: user.email,
+        name: user.name,
+        username: user.username,
       },
       accessToken: token,
     };
   }
 
-  async login(email: string, password: string, res?: Response) {
-    const user = await this.usersService.findByEmail(email);
+  async login(dto: LoginDto, req: Request, res: Response) {
+    const user = await this.usersService.findByEmail(dto.email);
 
     if (!user || typeof user !== 'object' || !('password' in user)) {
       throw new BadRequestException('Email Not Found');
     }
 
-    const {
-      id,
-      email: userEmail,
-      name: userName,
-      username: userUsername,
-      password: userPassword,
-    } = user as {
-      id: string;
-      email: string;
-      name: string;
-      username: string;
-      password: string;
-    };
-    const passwordMatch = await bcrypt.compare(password, userPassword);
+    const passwordMatch = await bcrypt.compare(dto.password, user.password);
 
     if (!passwordMatch) {
-      throw new BadRequestException('Invalid password');
+      throw new BadRequestException('Invalid Credentials');
     }
 
-    const token = this.jwtService.sign({
-      sub: id,
-      email: userEmail,
-    });
-    // Generate refresh token
+    const rawDeviceCookie = req.cookies['trustedDevice'];
+    let isDeviceTrusted = false;
+
+    if (rawDeviceCookie) {
+      const deviceHash = this.hashToken(rawDeviceCookie);
+      const trustedRecord = await this.usersService.FindTrustedDevice(
+        user.id,
+        deviceHash,
+      );
+
+      if (trustedRecord) isDeviceTrusted = true;
+    }
+
+    // ⚡️ FIXED: Changed user.twoFactorEnabled to user.isTwoFactorSecret to match your schema.prisma
+    if (user.isTwoFactorSecret && !isDeviceTrusted) {
+      const mfaSessionToken = this.jwtService.sign(
+        { sub: user.id, isMfaPending: true },
+        {
+          secret: this.configService.get<string>('JWT_SECRET'),
+          expiresIn: '5m',
+        },
+      );
+      return {
+        requiresMFA: true,
+        mfaSessionToken,
+        supportedMethods: ['totp', 'email'],
+      };
+    }
+
+    const token = this.jwtService.sign({ sub: user.id, email: user.email });
     const refreshToken = randomBytes(64).toString('hex');
-    const refreshTokenHash = createHash('sha256')
-      .update(refreshToken)
-      .digest('hex');
-    const refreshTokenExpires = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000); // 30 days
+    const refreshTokenExpires = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
+
     await this.usersService.setRefreshToken(
-      id,
-      refreshTokenHash,
+      user.id,
+      this.hashToken(refreshToken),
       refreshTokenExpires,
     );
-    if (res) {
-      res.cookie('refreshToken', refreshToken, {
-        httpOnly: true,
-        secure: true,
-        sameSite: 'lax',
-        expires: refreshTokenExpires,
-      });
-    }
+    this.setRefreshTokenCookie(res, refreshToken, refreshTokenExpires);
+
     return {
-      message: 'Login successfully',
+      message: 'Login Successful',
       user: {
-        id,
-        email: userEmail,
-        name: userName,
-        username: userUsername,
+        id: user.id,
+        email: user.email,
+        name: user.name,
+        username: user.username,
       },
       accessToken: token,
+    };
+  }
+
+  async verifyMfaChallenge(dto: VerifyMfaDto, req: Request, res: Response) {
+    let payload: any;
+    try {
+      payload = this.jwtService.verify(dto.mfaSessionToken);
+    } catch {
+      throw new UnauthorizedException('MFA session expired');
+    }
+
+    const user = await this.usersService.findById(payload.sub);
+    if (!user) throw new BadRequestException('User footprint not found');
+
+    if (dto.method === 'totp') {
+      if (!user.twoFactorSecret)
+        throw new BadRequestException('TOTP initialization properties missing');
+      const isValid = authenticator.verify({
+        token: dto.code,
+        secret: user.twoFactorSecret,
+      });
+      if (!isValid)
+        throw new UnauthorizedException('Invalid Verification token');
+    } else {
+      const isValid = await this.usersService.verifyTemporaryEmailOtp(
+        user.id,
+        dto.code,
+      );
+      if (!isValid) throw new UnauthorizedException('Invalid or expired code');
+    }
+
+    // Success: Save Device
+    const rawDeviceToken = randomBytes(64).toString('hex');
+    const deviceHash = this.hashToken(rawDeviceToken);
+    const thirtyDays = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
+
+    const userAgentRaw = req.headers['user-agent'] || 'Unknown Platform';
+    const userAgent = Array.isArray(userAgentRaw)
+      ? userAgentRaw[0]
+      : userAgentRaw;
+    await this.usersService.saveTrustedDevice(
+      user.id,
+      deviceHash,
+      thirtyDays,
+      userAgent,
+    );
+
+    res.cookie('trustedDevice', rawDeviceToken, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+      expires: thirtyDays,
+    });
+
+    const token = this.jwtService.sign({ sub: user.id, email: user.email });
+    return {
+      message: 'MFA checkpoint is cleared',
+      accessToken: token,
+      user: { id: user.id, email: user.email, name: user.name },
+    };
+  }
+
+  async sendMfaEmailOtp(mfaSessionToken: string) {
+    let payload: any;
+    try {
+      payload = this.jwtService.verify(mfaSessionToken);
+    } catch {
+      throw new UnauthorizedException('MFA Verification timeframe expired');
+    }
+
+    const user = await this.usersService.findById(payload.sub);
+    if (!user) throw new BadRequestException('User Profile not found');
+
+    const rawOtp = Math.floor(100000 + Math.random() * 900000).toString();
+    const expiresAt = new Date(Date.now() + 5 * 60 * 1000);
+
+    await this.usersService.saveEmailOtp(
+      user.id,
+      this.hashToken(rawOtp),
+      expiresAt,
+    );
+    await this.emailService.sendPasswordResetEmail(
+      user.email,
+      `Your TraceVault security code is: ${rawOtp}`,
+    );
+
+    return {
+      message: 'security token passed to mailbox',
+    };
+  }
+
+  async generate2FaQrCode(userId: string) {
+    const user = await this.usersService.findById(userId);
+    if (!user) throw new BadRequestException('User not found');
+
+    const secret = authenticator.generateSecret();
+    const otpAuthUrl = authenticator.keyuri(user.email, 'TraceVault', secret);
+
+    await this.usersService.updateTwoFactorSecret(userId, secret);
+    const qrCodeUrl = await QRCode.toDataURL(otpAuthUrl);
+
+    return {
+      qrCodeUrl,
+      secret,
+    };
+  }
+
+  async activate2Fa(userId: string, code: string) {
+    const user = await this.usersService.findById(userId);
+    if (!user || !user.twoFactorSecret)
+      throw new BadRequestException('2FA configuration uninitialized');
+
+    const isValid = authenticator.verify({
+      token: code,
+      secret: user.twoFactorSecret,
+    });
+    if (!isValid) throw new UnauthorizedException('Invalid confimation code');
+
+    await this.usersService.enableTwoFactor(userId);
+    return {
+      message: 'MFA configuration activated successfully',
     };
   }
 
   async refreshToken(req: Request, res: Response) {
     const refreshToken = req.cookies['refreshToken'];
     if (!refreshToken) throw new UnauthorizedException('No refresh token');
-    const refreshTokenHash = createHash('sha256')
-      .update(refreshToken)
-      .digest('hex');
-    const user = await this.usersService.findByRefreshToken(refreshTokenHash);
+
+    const user = await this.usersService.findByRefreshToken(
+      this.hashToken(refreshToken),
+    );
     if (
       !user ||
       !user.refreshTokenExpires ||
@@ -170,29 +285,25 @@ export class AuthService {
     ) {
       throw new UnauthorizedException('Invalid or expired refresh token');
     }
-    // Rotate refresh token
+
     const newRefreshToken = randomBytes(64).toString('hex');
-    const newRefreshTokenHash = createHash('sha256')
-      .update(newRefreshToken)
-      .digest('hex');
     const newRefreshTokenExpires = new Date(
       Date.now() + 30 * 24 * 60 * 60 * 1000,
     );
+
+    // ⚡️ FIXED: Re-added the database storage call so the rotated token state is saved in PostgreSQL
     await this.usersService.setRefreshToken(
       user.id,
-      newRefreshTokenHash,
+      this.hashToken(newRefreshToken),
       newRefreshTokenExpires,
     );
-    res.cookie('refreshToken', newRefreshToken, {
-      httpOnly: true,
-      secure: true,
-      sameSite: 'lax',
-      expires: newRefreshTokenExpires,
-    });
+
+    this.setRefreshTokenCookie(res, newRefreshToken, newRefreshTokenExpires);
     const accessToken = this.jwtService.sign({
       sub: user.id,
       email: user.email,
     });
+
     return {
       accessToken,
       user: {
@@ -207,13 +318,10 @@ export class AuthService {
   async logout(req: Request, res: Response) {
     const refreshToken = req.cookies['refreshToken'];
     if (refreshToken) {
-      const refreshTokenHash = createHash('sha256')
-        .update(refreshToken)
-        .digest('hex');
-      const user = await this.usersService.findByRefreshToken(refreshTokenHash);
-      if (user) {
-        await this.usersService.clearRefreshToken(user.id);
-      }
+      const user = await this.usersService.findByRefreshToken(
+        this.hashToken(refreshToken),
+      );
+      if (user) await this.usersService.clearRefreshToken(user.id);
     }
     res.clearCookie('refreshToken', {
       httpOnly: true,
@@ -225,6 +333,10 @@ export class AuthService {
 
   async forgotPassword(email: string) {
     const user = await this.usersService.findByEmail(email);
+    const genericResponse = {
+      message:
+        'If an account with that email exists, a password reset link has been sent. ',
+    };
 
     // Return generic response regardless of account existence.
     if (
@@ -233,31 +345,27 @@ export class AuthService {
       !('id' in user) ||
       !('email' in user)
     ) {
-      return {
-        message:
-          'If an account with that email exists, a password reset link has been sent.',
-      };
+      return genericResponse;
     }
 
     const token = randomBytes(32).toString('hex');
-    const tokenHash = createHash('sha256').update(token).digest('hex');
     const expiresAt = new Date(Date.now() + 60 * 60 * 1000);
 
-    const { id, email: userEmail } = user as { id: string; email: string };
-    await this.usersService.setPasswordResetToken(id, tokenHash, expiresAt);
+    await this.usersService.setPasswordResetToken(
+      user.id,
+      this.hashToken(token),
+      expiresAt,
+    );
 
     const frontendUrl =
       this.configService.get<string>('FRONTEND_URL') ||
       this.configService.get<string>('CLIENT_URL') ||
       'http://localhost:3000';
+
     const resetUrl = `${frontendUrl}/reset-password/${token}`;
 
-    await this.emailService.sendPasswordResetEmail(userEmail, resetUrl);
-
-    return {
-      message:
-        'If an account with that email exists, a password reset link has been sent.',
-    };
+    await this.emailService.sendPasswordResetEmail(user.email, resetUrl);
+    return genericResponse;
   }
 
   async resetPassword(token: string, password: string) {
@@ -265,26 +373,21 @@ export class AuthService {
       throw new BadRequestException('Token and password are required');
     }
 
-    const tokenHash = createHash('sha256').update(token).digest('hex');
-    const user = await this.usersService.findByPasswordResetToken(tokenHash);
+    const user = await this.usersService.findByPasswordResetToken(
+      this.hashToken(token),
+    );
 
-    const typedUser = user as {
-      id: string;
-      passwordResetExpires: Date | undefined;
-    };
     if (
-      !typedUser.passwordResetExpires ||
-      !(typedUser.passwordResetExpires instanceof Date)
+      !user ||
+      !user.passwordResetExpires ||
+      user.passwordResetExpires.getTime() < Date.now()
     ) {
-      throw new BadRequestException('Invalid or expired reset token');
-    }
-    if (typedUser.passwordResetExpires.getTime() < Date.now()) {
       throw new BadRequestException('Invalid or expired reset token');
     }
 
     const hashedPassword = await bcrypt.hash(password, 10);
-    await this.usersService.updatePassword(typedUser.id, hashedPassword);
-    await this.usersService.clearPasswordResetToken(typedUser.id);
+    await this.usersService.updatePassword(user.id, hashedPassword);
+    await this.usersService.clearPasswordResetToken(user.id);
 
     return {
       message: 'Password reset successful',
@@ -292,7 +395,7 @@ export class AuthService {
   }
 
   async getMe(userId: string) {
-    let user = await this.usersService.findById(userId);
+    const user = await this.usersService.findById(userId);
 
     if (
       !user ||
@@ -303,31 +406,19 @@ export class AuthService {
       throw new BadRequestException('User not found');
     }
 
-    // Backfill username if missing
-    let typedUser = user as {
-      id: string;
-      email: string;
-      name: string;
-      username?: string;
-    };
-    if (!typedUser.username) {
-      const generatedUsername =
-        (typedUser.name || 'user').toLowerCase().replace(/\s+/g, '') +
+    let username = user.username;
+    if (!username) {
+      username =
+        user.name.toLowerCase().replace(/\s+/g, '') +
         Math.floor(Math.random() * 1000);
-      user = await this.usersService.updateUsername(userId, generatedUsername);
-      typedUser = user as {
-        id: string;
-        email: string;
-        name: string;
-        username: string;
-      };
+      await this.usersService.updateUsername(user.id, username);
     }
 
     return {
-      id: typedUser.id,
-      email: typedUser.email,
-      name: typedUser.name,
-      username: typedUser.username,
+      id: user.id,
+      email: user.email,
+      name: user.name,
+      username: user.username,
     };
   }
 }

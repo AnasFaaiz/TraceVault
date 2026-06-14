@@ -1,10 +1,9 @@
-'use client';
+"use client";
 
-import { useEffect, useMemo, useState } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
-import { Download, CalendarDays, Filter, Loader2 } from 'lucide-react';
-import AppLayout from '@/components/dashboard/AppLayout';
-import api from '@/lib/api';
+import { useEffect, useMemo, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { Download, CalendarDays, Filter, Loader2 } from "lucide-react";
+import api from "@/lib/api";
 
 type HistoryEntry = {
   id: string;
@@ -26,14 +25,14 @@ type HistoryResponse = {
 };
 
 function formatTemplate(entry: HistoryEntry) {
-  return (entry.template_type || entry.category || 'unknown')
-    .replace(/_/g, ' ')
+  return (entry.template_type || entry.category || "unknown")
+    .replace(/_/g, " ")
     .toUpperCase();
 }
 
 function formatMonthLabel(dateValue: string) {
   return new Date(dateValue)
-    .toLocaleDateString('en-US', { month: 'short', year: 'numeric' })
+    .toLocaleDateString("en-US", { month: "short", year: "numeric" })
     .toUpperCase();
 }
 
@@ -44,10 +43,14 @@ export default function HistoryContent() {
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [projectId, setProjectId] = useState(searchParams.get('projectId') || '');
-  const [category, setCategory] = useState(searchParams.get('category') || '');
-  const [startDate, setStartDate] = useState(searchParams.get('startDate') || '');
-  const [endDate, setEndDate] = useState(searchParams.get('endDate') || '');
+  const [projectId, setProjectId] = useState(
+    searchParams.get("projectId") || "",
+  );
+  const [category, setCategory] = useState(searchParams.get("category") || "");
+  const [startDate, setStartDate] = useState(
+    searchParams.get("startDate") || "",
+  );
+  const [endDate, setEndDate] = useState(searchParams.get("endDate") || "");
   const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(true);
   const [totalEntries, setTotalEntries] = useState(0);
@@ -65,12 +68,14 @@ export default function HistoryContent() {
 
   useEffect(() => {
     const params = new URLSearchParams();
-    if (projectId) params.set('projectId', projectId);
-    if (category) params.set('category', category);
-    if (startDate) params.set('startDate', startDate);
-    if (endDate) params.set('endDate', endDate);
+    if (projectId) params.set("projectId", projectId);
+    if (category) params.set("category", category);
+    if (startDate) params.set("startDate", startDate);
+    if (endDate) params.set("endDate", endDate);
 
-    router.replace(params.toString() ? `/history?${params.toString()}` : '/history');
+    router.replace(
+      params.toString() ? `/history?${params.toString()}` : "/history",
+    );
   }, [projectId, category, startDate, endDate, router]);
 
   useEffect(() => {
@@ -81,7 +86,7 @@ export default function HistoryContent() {
       setError(null);
 
       try {
-        const response = await api.get<HistoryResponse>('/users/me/history', {
+        const response = await api.get<HistoryResponse>("/users/me/history", {
           params: {
             page: 1,
             limit,
@@ -97,9 +102,9 @@ export default function HistoryContent() {
         }
       } catch (err) {
         if (active) {
-          setError('Failed to load your history.');
+          setError("Failed to load your history.");
         }
-        console.error('Failed to load history', err);
+        console.error("Failed to load history", err);
       } finally {
         if (active) {
           setLoading(false);
@@ -120,7 +125,7 @@ export default function HistoryContent() {
     setLoadingMore(true);
     try {
       const nextPage = page + 1;
-      const response = await api.get<HistoryResponse>('/users/me/history', {
+      const response = await api.get<HistoryResponse>("/users/me/history", {
         params: {
           page: nextPage,
           limit,
@@ -133,7 +138,7 @@ export default function HistoryContent() {
       setHasMore(response.data.hasMore);
       setTotalEntries(response.data.totalEntries);
     } catch (err) {
-      console.error('Failed to load more history', err);
+      console.error("Failed to load more history", err);
     } finally {
       setLoadingMore(false);
     }
@@ -175,17 +180,17 @@ export default function HistoryContent() {
 
   const downloadFile = (blob: Blob, fileName: string) => {
     const url = URL.createObjectURL(blob);
-    const anchor = document.createElement('a');
+    const anchor = document.createElement("a");
     anchor.href = url;
     anchor.download = fileName;
     anchor.click();
     URL.revokeObjectURL(url);
   };
 
-  const exportHistory = async (format: 'json' | 'markdown') => {
+  const exportHistory = async (format: "json" | "markdown") => {
     try {
-      const response = await api.get('/users/me/history/export', {
-        responseType: 'blob',
+      const response = await api.get("/users/me/history/export", {
+        responseType: "blob",
         params: {
           format,
           ...queryParams,
@@ -195,7 +200,7 @@ export default function HistoryContent() {
       downloadFile(
         response.data,
         `tracevault-history-${new Date().toISOString().slice(0, 10)}.${
-          format === 'markdown' ? 'md' : 'json'
+          format === "markdown" ? "md" : "json"
         }`,
       );
     } catch (err) {
@@ -210,37 +215,37 @@ export default function HistoryContent() {
       headerActions={
         <>
           <button
-            onClick={() => exportHistory('json')}
+            onClick={() => exportHistory("json")}
             style={{
-              display: 'inline-flex',
-              alignItems: 'center',
+              display: "inline-flex",
+              alignItems: "center",
               gap: 8,
-              border: '1px solid var(--border)',
-              background: '#fff',
-              color: 'var(--ink)',
+              border: "1px solid var(--border)",
+              background: "#fff",
+              color: "var(--ink)",
               borderRadius: 8,
-              padding: '9px 12px',
-              fontFamily: 'var(--mono)',
+              padding: "9px 12px",
+              fontFamily: "var(--mono)",
               fontSize: 12,
-              cursor: 'pointer',
+              cursor: "pointer",
             }}
           >
             <Download size={14} /> JSON
           </button>
           <button
-            onClick={() => exportHistory('markdown')}
+            onClick={() => exportHistory("markdown")}
             style={{
-              display: 'inline-flex',
-              alignItems: 'center',
+              display: "inline-flex",
+              alignItems: "center",
               gap: 8,
-              border: '1px solid var(--border)',
-              background: '#fff',
-              color: 'var(--ink)',
+              border: "1px solid var(--border)",
+              background: "#fff",
+              color: "var(--ink)",
               borderRadius: 8,
-              padding: '9px 12px',
-              fontFamily: 'var(--mono)',
+              padding: "9px 12px",
+              fontFamily: "var(--mono)",
               fontSize: 12,
-              cursor: 'pointer',
+              cursor: "pointer",
             }}
           >
             <Download size={14} /> Markdown
@@ -248,23 +253,32 @@ export default function HistoryContent() {
         </>
       }
     >
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
+      <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
         <div
           style={{
-            display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
+            display: "grid",
+            gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
             gap: 12,
             padding: 16,
-            border: '1px solid var(--border)',
-            background: '#fff',
+            border: "1px solid var(--border)",
+            background: "#fff",
             borderRadius: 16,
           }}
         >
-          <label style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-            <span style={{ fontFamily: 'var(--mono)', fontSize: 11, color: 'var(--muted)' }}>
+          <label style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+            <span
+              style={{
+                fontFamily: "var(--mono)",
+                fontSize: 11,
+                color: "var(--muted)",
+              }}
+            >
               Project
             </span>
-            <select value={projectId} onChange={(e) => setProjectId(e.target.value)}>
+            <select
+              value={projectId}
+              onChange={(e) => setProjectId(e.target.value)}
+            >
               <option value="">All projects</option>
               {projectOptions.map((project) => (
                 <option key={project.id} value={project.id}>
@@ -274,8 +288,14 @@ export default function HistoryContent() {
             </select>
           </label>
 
-          <label style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-            <span style={{ fontFamily: 'var(--mono)', fontSize: 11, color: 'var(--muted)' }}>
+          <label style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+            <span
+              style={{
+                fontFamily: "var(--mono)",
+                fontSize: 11,
+                color: "var(--muted)",
+              }}
+            >
               Template type
             </span>
             <input
@@ -285,28 +305,48 @@ export default function HistoryContent() {
             />
           </label>
 
-          <label style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-            <span style={{ fontFamily: 'var(--mono)', fontSize: 11, color: 'var(--muted)' }}>
+          <label style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+            <span
+              style={{
+                fontFamily: "var(--mono)",
+                fontSize: 11,
+                color: "var(--muted)",
+              }}
+            >
               Start date
             </span>
-            <input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} />
+            <input
+              type="date"
+              value={startDate}
+              onChange={(e) => setStartDate(e.target.value)}
+            />
           </label>
 
-          <label style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-            <span style={{ fontFamily: 'var(--mono)', fontSize: 11, color: 'var(--muted)' }}>
+          <label style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+            <span
+              style={{
+                fontFamily: "var(--mono)",
+                fontSize: 11,
+                color: "var(--muted)",
+              }}
+            >
               End date
             </span>
-            <input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} />
+            <input
+              type="date"
+              value={endDate}
+              onChange={(e) => setEndDate(e.target.value)}
+            />
           </label>
         </div>
 
         <div
           style={{
-            display: 'flex',
-            alignItems: 'center',
+            display: "flex",
+            alignItems: "center",
             gap: 12,
-            color: 'var(--muted)',
-            fontFamily: 'var(--mono)',
+            color: "var(--muted)",
+            fontFamily: "var(--mono)",
             fontSize: 12,
           }}
         >
@@ -321,10 +361,10 @@ export default function HistoryContent() {
         {loading && (
           <div
             style={{
-              display: 'flex',
-              justifyContent: 'center',
+              display: "flex",
+              justifyContent: "center",
               padding: 48,
-              color: 'var(--muted)',
+              color: "var(--muted)",
             }}
           >
             <Loader2 size={20} className="animate-spin" />
@@ -334,9 +374,9 @@ export default function HistoryContent() {
         {error && !loading && (
           <div
             style={{
-              border: '1px solid #efc6c6',
-              background: '#fff6f6',
-              color: '#9f3a3a',
+              border: "1px solid #efc6c6",
+              background: "#fff6f6",
+              color: "#9f3a3a",
               padding: 16,
               borderRadius: 12,
             }}
@@ -349,105 +389,150 @@ export default function HistoryContent() {
           <>
             <section
               style={{
-                border: '1px solid var(--border)',
-                background: '#fff',
+                border: "1px solid var(--border)",
+                background: "#fff",
                 borderRadius: 16,
                 padding: 18,
               }}
             >
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 8,
+                  marginBottom: 12,
+                }}
+              >
                 <CalendarDays size={16} color="var(--amber)" />
-                <h2 style={{ fontFamily: 'var(--serif)', fontSize: 22 }}>On this day</h2>
+                <h2 style={{ fontFamily: "var(--serif)", fontSize: 22 }}>
+                  On this day
+                </h2>
               </div>
               {onThisDay.length > 0 ? (
-                <div style={{ display: 'grid', gap: 10 }}>
+                <div style={{ display: "grid", gap: 10 }}>
                   {onThisDay.slice(0, 5).map((entry) => (
                     <div
                       key={entry.id}
-                      style={{ display: 'flex', justifyContent: 'space-between', gap: 12 }}
+                      style={{
+                        display: "flex",
+                        justifyContent: "space-between",
+                        gap: 12,
+                      }}
                     >
                       <div>
-                        <div style={{ fontSize: 13, fontWeight: 500 }}>{entry.title}</div>
-                        <div style={{ fontSize: 12, color: 'var(--muted)' }}>
-                          {formatTemplate(entry)} · {entry.project?.name || 'No project'}
+                        <div style={{ fontSize: 13, fontWeight: 500 }}>
+                          {entry.title}
+                        </div>
+                        <div style={{ fontSize: 12, color: "var(--muted)" }}>
+                          {formatTemplate(entry)} ·{" "}
+                          {entry.project?.name || "No project"}
                         </div>
                       </div>
-                      <div style={{ fontFamily: 'var(--mono)', fontSize: 11, color: 'var(--muted)' }}>
+                      <div
+                        style={{
+                          fontFamily: "var(--mono)",
+                          fontSize: 11,
+                          color: "var(--muted)",
+                        }}
+                      >
                         {new Date(entry.createdAt).toLocaleDateString()}
                       </div>
                     </div>
                   ))}
                 </div>
               ) : (
-                <p style={{ color: 'var(--muted)' }}>No earlier entries match today&apos;s date.</p>
+                <p style={{ color: "var(--muted)" }}>
+                  No earlier entries match today&apos;s date.
+                </p>
               )}
             </section>
 
-            <section style={{ position: 'relative', paddingLeft: 18 }}>
+            <section style={{ position: "relative", paddingLeft: 18 }}>
               <div
                 style={{
-                  position: 'absolute',
+                  position: "absolute",
                   left: 7,
                   top: 0,
                   bottom: 0,
                   width: 2,
-                  background: 'var(--border)',
+                  background: "var(--border)",
                 }}
               />
-              <div style={{ display: 'grid', gap: 22 }}>
+              <div style={{ display: "grid", gap: 22 }}>
                 {groupedEntries.length > 0 ? (
                   groupedEntries.map(([label, items]) => (
-                    <div key={label} style={{ position: 'relative', paddingLeft: 16 }}>
+                    <div
+                      key={label}
+                      style={{ position: "relative", paddingLeft: 16 }}
+                    >
                       <div
                         style={{
-                          position: 'absolute',
+                          position: "absolute",
                           left: -1,
                           top: 8,
                           width: 10,
                           height: 10,
-                          borderRadius: '50%',
-                          background: '#0e0d0b',
-                          border: '2px solid #f5f2eb',
+                          borderRadius: "50%",
+                          background: "#0e0d0b",
+                          border: "2px solid #f5f2eb",
                         }}
                       />
                       <div
                         style={{
-                          fontFamily: 'var(--mono)',
+                          fontFamily: "var(--mono)",
                           fontSize: 11,
-                          color: 'var(--muted)',
+                          color: "var(--muted)",
                           marginBottom: 10,
                         }}
                       >
                         {label}
                       </div>
-                      <div style={{ display: 'grid', gap: 10 }}>
+                      <div style={{ display: "grid", gap: 10 }}>
                         {items.map((entry) => (
                           <article
                             key={entry.id}
                             style={{
-                              display: 'grid',
-                              gridTemplateColumns: '120px 1fr 90px 120px',
+                              display: "grid",
+                              gridTemplateColumns: "120px 1fr 90px 120px",
                               gap: 12,
-                              alignItems: 'center',
-                              padding: '14px 16px',
-                              border: '1px solid var(--border)',
+                              alignItems: "center",
+                              padding: "14px 16px",
+                              border: "1px solid var(--border)",
                               borderRadius: 14,
-                              background: '#fff',
+                              background: "#fff",
                             }}
                           >
-                            <div style={{ fontFamily: 'var(--mono)', fontSize: 11, color: 'var(--muted)' }}>
+                            <div
+                              style={{
+                                fontFamily: "var(--mono)",
+                                fontSize: 11,
+                                color: "var(--muted)",
+                              }}
+                            >
                               {formatTemplate(entry)}
                             </div>
                             <div>
-                              <div style={{ fontWeight: 500 }}>{entry.title}</div>
-                              <div style={{ fontSize: 12, color: 'var(--muted)' }}>
-                                {entry.project?.name || 'No project'} · {entry.relativeDate}
+                              <div style={{ fontWeight: 500 }}>
+                                {entry.title}
+                              </div>
+                              <div
+                                style={{ fontSize: 12, color: "var(--muted)" }}
+                              >
+                                {entry.project?.name || "No project"} ·{" "}
+                                {entry.relativeDate}
                               </div>
                             </div>
-                            <div style={{ fontSize: 12, textTransform: 'capitalize' }}>
-                              {entry.impact || 'minor'}
+                            <div
+                              style={{
+                                fontSize: 12,
+                                textTransform: "capitalize",
+                              }}
+                            >
+                              {entry.impact || "minor"}
                             </div>
-                            <div style={{ fontSize: 12, color: 'var(--muted)' }}>
+                            <div
+                              style={{ fontSize: 12, color: "var(--muted)" }}
+                            >
                               {entry.totalReactions} reactions
                             </div>
                           </article>
@@ -459,10 +544,10 @@ export default function HistoryContent() {
                   <div
                     style={{
                       padding: 24,
-                      border: '1px dashed var(--border)',
+                      border: "1px dashed var(--border)",
                       borderRadius: 14,
-                      color: 'var(--muted)',
-                      background: '#fff',
+                      color: "var(--muted)",
+                      background: "#fff",
                     }}
                   >
                     No history entries match the current filters.
@@ -472,26 +557,34 @@ export default function HistoryContent() {
             </section>
 
             {hasMore && (
-              <div style={{ display: 'flex', justifyContent: 'center', paddingBottom: 12 }}>
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent: "center",
+                  paddingBottom: 12,
+                }}
+              >
                 <button
                   onClick={loadMore}
                   disabled={loadingMore}
                   style={{
-                    display: 'inline-flex',
-                    alignItems: 'center',
+                    display: "inline-flex",
+                    alignItems: "center",
                     gap: 8,
-                    border: '1px solid var(--border)',
-                    background: '#fff',
-                    color: 'var(--ink)',
+                    border: "1px solid var(--border)",
+                    background: "#fff",
+                    color: "var(--ink)",
                     borderRadius: 999,
-                    padding: '10px 16px',
-                    fontFamily: 'var(--mono)',
+                    padding: "10px 16px",
+                    fontFamily: "var(--mono)",
                     fontSize: 12,
-                    cursor: 'pointer',
+                    cursor: "pointer",
                   }}
                 >
-                  {loadingMore ? <Loader2 size={14} className="animate-spin" /> : null}
-                  {loadingMore ? 'Loading more...' : 'Load more'}
+                  {loadingMore ? (
+                    <Loader2 size={14} className="animate-spin" />
+                  ) : null}
+                  {loadingMore ? "Loading more..." : "Load more"}
                 </button>
               </div>
             )}
@@ -501,3 +594,4 @@ export default function HistoryContent() {
     </AppLayout>
   );
 }
+

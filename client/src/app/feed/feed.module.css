@@ -524,6 +524,11 @@
   gap: 0.38rem;
   padding: 0.45rem 0;
   border-bottom: 1px solid color-mix(in srgb, var(--border) 80%, transparent 20%);
+  cursor: pointer;
+}
+
+.trendingItem:hover .rankedText {
+  color: var(--teal);
 }
 
 .trendingItem:last-child {

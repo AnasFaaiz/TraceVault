@@ -9,7 +9,7 @@ import {
 } from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { AuthGuard } from '@nestjs/passport';
-import type { Response, Request } from 'express';
+import * as express from 'express';
 
 @Controller('auth')
 export class AuthController {
@@ -24,7 +24,7 @@ export class AuthController {
   @Post('register')
   async register(
     @Body() body: { email: string; password: string; name: string },
-    @Res() res: Response,
+    @Res() res: express.Response,
   ) {
     const result = await this.authService.register(
       body.email,
@@ -38,19 +38,21 @@ export class AuthController {
   @Post('login')
   async login(
     @Body() body: { email: string; password: string },
-    @Res() res: Response,
+    @Req() req: express.Request,
+    @Res() res: express.Response,
   ) {
-    const result = await this.authService.login(body.email, body.password, res);
+    const result = await this.authService.login(body, req, res);
     res.json(result);
   }
+
   @Post('refresh')
-  async refresh(@Req() req: Request, @Res() res: Response) {
+  async refresh(@Req() req: express.Request, @Res() res: express.Response) {
     const result = await this.authService.refreshToken(req, res);
     res.json(result);
   }
 
   @Post('logout')
-  async logout(@Req() req: Request, @Res() res: Response) {
+  async logout(@Req() req: express.Request, @Res() res: express.Response) {
     const result = await this.authService.logout(req, res);
     res.json(result);
   }

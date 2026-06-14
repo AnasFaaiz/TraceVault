@@ -4,6 +4,7 @@ import {
   ForbiddenException,
 } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
+import { Visibility } from '@prisma/client';
 
 function formatRelativeTime(date: string | Date | null) {
   if (!date) return 'never';
@@ -60,7 +61,7 @@ export class CollectionsService {
     return this.prisma.collection.create({
       data: {
         ...data,
-        visibility: data.visibility || 'private',
+        visibility: (data.visibility as Visibility) || Visibility.public,
         userId,
       },
     });
@@ -75,7 +76,7 @@ export class CollectionsService {
             entry: {
               include: {
                 project: { select: { name: true } },
-                reactions: true,
+                votes: true,
               },
             },
           },
@@ -99,10 +100,10 @@ export class CollectionsService {
       entries: collection.entries.map((ce) => ({
         id: ce.entry.id,
         title: ce.entry.title,
-        template_type: ce.entry.template_type,
+        category: ce.entry.category,
         impact: ce.entry.impact,
         projectName: ce.entry.project.name,
-        topReactionEmoji: ce.entry.reactions[0]?.type || null,
+        topReactionEmoji: ce.entry.votes[0]?.type || null,
         createdAt: ce.entry.createdAt,
         relativeDate: formatRelativeTime(ce.entry.createdAt),
         addedAt: ce.addedAt,
@@ -116,9 +117,18 @@ export class CollectionsService {
     data: { name?: string; description?: string; visibility?: string },
   ) {
     await this.assertOwner(userId, id);
+    const updatePayload: any = {
+      name: data.name,
+      description: data.description,
+    };
+
+    if (data.visibility) {
+      updatePayload.visibility = data.visibility as Visibility;
+    }
+
     return this.prisma.collection.update({
       where: { id },
-      data,
+      data: updatePayload,
     });
   }
 

@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
-import { User } from '@prisma/client';
+import { User, TrustedDevice, EmailOtps } from '@prisma/client';
+import * as crypto from 'crypto';
 
 @Injectable()
 export class UsersService {
@@ -12,16 +13,29 @@ export class UsersService {
     password: string;
     name: string;
     username?: string;
-  }) {
+  }): Promise<User> {
     return this.prisma.user.create({
       data,
     });
   }
 
   // findByEmail()
-  async findByEmail(email: string) {
+  async findByEmail(email: string): Promise<User | null> {
     return this.prisma.user.findUnique({
       where: { email },
+    });
+  }
+
+  async findById(id: string): Promise<User | null> {
+    return this.prisma.user.findUnique({
+      where: { id },
+    });
+  }
+
+  async updateUsername(userId: string, username: string): Promise<User> {
+    return this.prisma.user.update({
+      where: { id: userId },
+      data: { username },
     });
   }
 
@@ -33,16 +47,16 @@ export class UsersService {
     return this.prisma.user.update({
       where: { id: userId },
       data: {
-        passwordResetToken: token,
+        passwordResetTokenHash: token,
         passwordResetExpires: expiresAt,
       },
     });
   }
 
-  async findByPasswordResetToken(token: string) {
+  async findByPasswordResetToken(token: string): Promise<User | null> {
     return this.prisma.user.findFirst({
       where: {
-        passwordResetToken: token,
+        passwordResetTokenHash: token,
       },
     });
   }
@@ -60,22 +74,9 @@ export class UsersService {
     return this.prisma.user.update({
       where: { id: userId },
       data: {
-        passwordResetToken: null,
+        passwordResetTokenHash: null,
         passwordResetExpires: null,
       },
-    });
-  }
-
-  async findById(id: string) {
-    return this.prisma.user.findUnique({
-      where: { id },
-    });
-  }
-
-  async updateUsername(userId: string, username: string): Promise<User> {
-    return this.prisma.user.update({
-      where: { id: userId },
-      data: { username },
     });
   }
 
@@ -108,5 +109,71 @@ export class UsersService {
         refreshTokenHash: tokenHash,
       },
     });
+  }
+
+  async updateTwoFactorSecret(userId: string, secret: string): Promise<User> {
+    return this.prisma.user.update({
+      where: { id: userId },
+      data: { twoFactorSecret: secret },
+    });
+  }
+
+  async enableTwoFactor(userId: string): Promise<User> {
+    return this.prisma.user.update({
+      where: { id: userId },
+      data: { isTwoFactorEnabled: true } as any,
+    });
+  }
+
+  async FindTrustedDevice(
+    userId: string,
+    deviceHash: string,
+  ): Promise<TrustedDevice | null> {
+    return this.prisma.trustedDevice.findFirst({
+      where: { userId, deviceHash, expiresAt: { gte: new Date() } },
+    });
+  }
+
+  async saveTrustedDevice(
+    userId: string,
+    deviceHash: string,
+    expiresAt: Date,
+    browser?: string,
+    ipAddress?: string,
+  ): Promise<TrustedDevice> {
+    return this.prisma.trustedDevice.create({
+      data: { userId, deviceHash, expiresAt, browser, ipAddress },
+    });
+  }
+
+  async saveEmailOtp(
+    userId: string,
+    otpHash: string,
+    expiresAt: Date,
+  ): Promise<EmailOtps> {
+    await this.prisma.emailOtps.deleteMany({ where: { userId } });
+    return this.prisma.emailOtps.create({
+      data: { userId, otpHash, expiresAt },
+    });
+  }
+
+  async verifyTemporaryEmailOtp(
+    userId: string,
+    rawOtp: string,
+  ): Promise<boolean> {
+    const currentOtpHash = crypto
+      .createHash('sha256')
+      .update(rawOtp)
+      .digest('hex');
+    const otpRecord = await this.prisma.emailOtps.findFirst({
+      where: {
+        userId,
+        otpHash: currentOtpHash,
+        expiresAt: { gte: new Date() },
+      },
+    });
+    if (!otpRecord) return false;
+    await this.prisma.emailOtps.delete({ where: { id: otpRecord.id } });
+    return true;
   }
 }

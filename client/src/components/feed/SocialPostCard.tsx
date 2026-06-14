@@ -2,7 +2,14 @@
 
 import React, { useCallback, useState } from "react";
 import Link from "next/link";
-import { MoreHorizontal, ArrowUp, ArrowDown, Check, Link as LinkIcon } from "lucide-react";
+import {
+  MoreHorizontal,
+  ArrowUp,
+  ArrowDown,
+  Check,
+  Link as LinkIcon,
+  MessageSquare,
+} from "lucide-react";
 import api from "@/lib/api";
 import { useAuthStore } from "@/store/useAuthStore";
 import styles from "./FeedCard.module.css"; // Inheriting baseline card wrappers to keep styling dry
@@ -30,9 +37,15 @@ interface SocialPostCardProps {
     };
     vaulted: boolean;
   };
+  onOpen: () => void;
+  onOpenChat: () => void;
 }
 
-export default function SocialPostCard({ entry }: SocialPostCardProps) {
+export default function SocialPostCard({
+  entry,
+  onOpen,
+  onOpenChat,
+}: SocialPostCardProps) {
   const user = useAuthStore((state) => state.user);
   const [upCount, setUpCount] = useState(entry.reactions.useful.count);
   const [downCount, setDownCount] = useState(entry.reactions.critical.count);
@@ -142,12 +155,26 @@ export default function SocialPostCard({ entry }: SocialPostCardProps) {
       console.error("Failed to copy link: ", err);
     }
   };
+
+  const handleCardKey = (event: React.KeyboardEvent<HTMLDivElement>) => {
+    if (event.key === "Enter" || event.key === " ") {
+      event.preventDefault();
+      onOpen();
+    }
+  };
   return (
-    <div className={`${styles.feedCard} ${styles.socialPostCard}`}>
+    <div
+      className={`${styles.feedCard} ${styles.socialPostCard} ${styles.clickableCard}`}
+      onClick={onOpen}
+      onKeyDown={handleCardKey}
+      role="button"
+      tabIndex={0}
+    >
       <button
         type="button"
         className={styles.moreButton}
         aria-label="More options"
+        onClick={(event) => event.stopPropagation()}
       >
         <MoreHorizontal size={16} />
       </button>
@@ -169,6 +196,7 @@ export default function SocialPostCard({ entry }: SocialPostCardProps) {
             <Link
               href={`/projects/${entry.project.id}`}
               className={styles.projectLink}
+              onClick={(event) => event.stopPropagation()}
             >
               {entry.project.name}
             </Link>
@@ -203,7 +231,10 @@ export default function SocialPostCard({ entry }: SocialPostCardProps) {
             <button
               type="button"
               className={`${styles.iconButton} ${styles.btnUp} ${userVote === "up" ? styles.activeUp : ""}`}
-              onClick={handleUpvote}
+              onClick={(event) => {
+                event.stopPropagation();
+                handleUpvote();
+              }}
               aria-label="Upvote"
               disabled={!user || isVoting}
             >
@@ -218,7 +249,10 @@ export default function SocialPostCard({ entry }: SocialPostCardProps) {
             <button
               type="button"
               className={`${styles.iconButton} ${styles.btnDown} ${userVote === "down" ? styles.activeDown : ""}`}
-              onClick={handleDownvote}
+              onClick={(event) => {
+                event.stopPropagation();
+                handleDownvote();
+              }}
               aria-label="Downvote"
               disabled={!user || isVoting}
             >
@@ -233,8 +267,22 @@ export default function SocialPostCard({ entry }: SocialPostCardProps) {
         <div className={styles.actionGroup}>
           <button
             type="button"
+            className={`${styles.iconButton} ${styles.btnChat}`}
+            onClick={(event) => {
+              event.stopPropagation();
+              onOpenChat();
+            }}
+            aria-label="Open chat"
+          >
+            <MessageSquare size={18} />
+          </button>
+          <button
+            type="button"
             className={`${styles.iconButton} ${styles.btnVault} ${isVaulted ? styles.activeVault : ""}`}
-            onClick={handleVaultToggle}
+            onClick={(event) => {
+              event.stopPropagation();
+              void handleVaultToggle();
+            }}
             aria-label={isVaulted ? "Remove from vault" : "Add to vault"}
             disabled={!user || isVaultUpdating}
           >
@@ -258,7 +306,10 @@ export default function SocialPostCard({ entry }: SocialPostCardProps) {
           <button
             type="button"
             className={`${styles.iconButton} ${styles.btnLink}`}
-            onClick={handleCopyLink}
+            onClick={(event) => {
+              event.stopPropagation();
+              void handleCopyLink();
+            }}
             aria-label={copied ? "Link copied" : "Copy link"}
           >
             {copied ? (

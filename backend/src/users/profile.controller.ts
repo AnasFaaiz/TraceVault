@@ -20,6 +20,15 @@ import { AuthGuard } from '@nestjs/passport';
 import { ProfileService } from './profile.service';
 import { OptionalJwtAuthGuard } from '../auth/optional-jwt-auth.guard';
 
+// ⚡️ DEFINED: Clear interface matching incoming frontend payload expectations
+export interface UpdateProfileDto {
+  name?: string;
+  bio?: string;
+  username?: string;
+  avatarUrl?: string;
+  isPrivate?: boolean;
+}
+
 @Controller('users')
 export class ProfileController {
   constructor(private profileService: ProfileService) {}
@@ -116,14 +125,7 @@ export class ProfileController {
   @UseGuards(AuthGuard('jwt'))
   async updateProfile(
     @Req() req: any,
-    @Body()
-    body: {
-      name?: string;
-      bio?: string;
-      username?: string;
-      avatarUrl?: string;
-      isPrivate?: boolean;
-    },
+    @Body() body: UpdateProfileDto, // ⚡️ FIXED: Strongly typed via clean DTO matching service expectation
   ) {
     return this.profileService.updateProfile(req.user.userId, body);
   }

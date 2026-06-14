@@ -4,27 +4,24 @@ import {
   ForbiddenException,
 } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
+import { ReflectionCategory, ImpactLevel, VoteType } from '@prisma/client';
 
 export interface CreateReflectionDto {
   title: string;
   category: string;
-  template_type: string;
   fields?: Record<string, any>;
   tags?: string[];
   content?: string;
   impact?: string;
-  entryType?: 'reflection' | 'social_post';
 }
 
 export interface UpdateReflectionDto {
   title?: string;
   category?: string;
-  template_type?: string;
   fields?: Record<string, any>;
   tags?: string[];
   content?: string;
   impact?: string;
-  entryType?: 'reflection' | 'social_post';
 }
 
 @Injectable()
@@ -36,12 +33,10 @@ export class ReflectionsService {
     currentUserId?: string,
     isVaulted?: boolean | Set<string>,
   ) {
-    const usefulReactions =
-      record?.reactions?.filter((r: any) => r.type === 'useful') || [];
-    const criticalReactions =
-      record?.reactions?.filter((r: any) => r.type === 'critical') || [];
-    const appliedReactions =
-      record?.reactions?.filter((r: any) => r.type === 'applied') || [];
+    const upvotes =
+      record?.votes?.filter((v: any) => v.type === VoteType.UPVOTE) || [];
+    const downvotes =
+      record?.votes?.filter((v: any) => v.type === VoteType.DOWNVOTE) || [];
 
     let vaulted = false;
     if (typeof isVaulted === 'boolean') {
@@ -53,15 +48,14 @@ export class ReflectionsService {
     return {
       id: record?.id || '',
       title: record?.title || '',
-      category: record?.category || '',
-      template_type: record?.template_type || '',
-      impact: record?.impact || 'minor',
+      category: record?.category || 'DEVELOPER_NOTE',
+      impact: record?.impact || 'MINOR',
       tags: record?.tags || [],
       content: record?.content || '',
       snippet: record?.content ? record.content.substring(0, 160) + '...' : '',
       readTime: '2 min read',
       confidence: record?.fields?.confidence || null,
-      fields: record?.fields || {}, // 👈 ADD THIS: Ensures entry.fields is never undefined!
+      fields: record?.fields || {},
       createdAt: record?.createdAt
         ? record.createdAt.toISOString()
         : new Date().toISOString(),
@@ -77,28 +71,15 @@ export class ReflectionsService {
         id: record?.project?.id || '',
         name: record?.project?.name || 'Unassigned',
       },
-      type:
-        record?.category === 'social_post' ||
-        record?.template_type === 'social_post'
-          ? 'social_post'
-          : 'reflection',
-      reactions: {
-        useful: {
-          count: usefulReactions.length,
-          reacted: usefulReactions.some((r: any) => r.userId === currentUserId),
-        },
-        critical: {
-          count: criticalReactions.length,
-          reacted: criticalReactions.some(
-            (r: any) => r.userId === currentUserId,
-          ),
-        },
-        applied: {
-          count: appliedReactions.length,
-          reacted: appliedReactions.some(
-            (r: any) => r.userId === currentUserId,
-          ),
-        },
+      type: record?.category === 'SOCIAL_POST' ? 'social_post' : 'reflection',
+
+      // ⚡️ FIXED: Clean structure returning aggregated score counts and explicit user states
+      votes: {
+        upvoteCount: upvotes.length,
+        downvoteCount: downvotes.length,
+        score: upvotes.length - downvotes.length,
+        hasUpvoted: upvotes.some((v: any) => v.userId === currentUserId),
+        hasDownvoted: downvotes.some((v: any) => v.userId === currentUserId),
       },
       vaulted,
     };
@@ -121,17 +102,20 @@ export class ReflectionsService {
     projectId: string,
     data: CreateReflectionDto,
   ) {
+    const mappedCategory = (data.category?.toUpperCase() ||
+      'DEVELOPER_NOTE') as ReflectionCategory;
+    const mappedImpact = (data.impact?.toUpperCase() || 'MINOR') as ImpactLevel;
+
     return this.prisma.reflection.create({
       data: {
         userId,
         projectId,
         title: data.title,
-        category: data.category,
-        template_type: data.template_type,
+        category: mappedCategory,
         fields: data.fields || {},
         tags: data.tags || [],
         content: data.content || '',
-        impact: data.impact || 'minor',
+        impact: mappedImpact,
       },
       include: {
         user: true,
@@ -146,7 +130,7 @@ export class ReflectionsService {
         where: { userId },
         take: limit,
         orderBy: { createdAt: 'desc' },
-        include: { user: true, project: true, reactions: true },
+        include: { user: true, project: true, votes: true },
       }),
       this.prisma.vaultEntry.findMany({
         where: { userId },
@@ -161,7 +145,7 @@ export class ReflectionsService {
     const records = await this.prisma.reflection.findMany({
       take: limit,
       orderBy: { createdAt: 'desc' },
-      include: { user: true, project: true, reactions: true },
+      include: { user: true, project: true, votes: true },
     });
     return records.map((r) => this.mapToFeedEntry(r));
   }
@@ -171,7 +155,7 @@ export class ReflectionsService {
       this.prisma.reflection.findMany({
         where: { projectId },
         orderBy: { createdAt: 'desc' },
-        include: { user: true, project: true, reactions: true },
+        include: { user: true, project: true, votes: true },
       }),
       this.prisma.vaultEntry.findMany({
         where: { userId },
@@ -192,8 +176,15 @@ export class ReflectionsService {
     const whereClause: any = {};
     if (filters.userId) whereClause.userId = filters.userId;
     if (filters.projectId) whereClause.projectId = filters.projectId;
-    if (filters.category) whereClause.category = filters.category;
-    if (filters.impact) whereClause.impact = filters.impact;
+
+    if (filters.category) {
+      whereClause.category =
+        filters.category.toUpperCase() as ReflectionCategory;
+    }
+    if (filters.impact) {
+      whereClause.impact = filters.impact.toUpperCase() as ImpactLevel;
+    }
+
     if (filters.search) {
       whereClause.OR = [
         { title: { contains: filters.search, mode: 'insensitive' } },
@@ -205,7 +196,7 @@ export class ReflectionsService {
       this.prisma.reflection.findMany({
         where: whereClause,
         orderBy: { createdAt: 'desc' },
-        include: { user: true, project: true, reactions: true },
+        include: { user: true, project: true, votes: true },
       }),
       filters.userId
         ? this.prisma.vaultEntry.findMany({
@@ -234,7 +225,7 @@ export class ReflectionsService {
       this.prisma.reflection.findMany({
         where: { createdAt: { gte: timeLimit }, visibility: 'public' },
         take: limit,
-        include: { user: true, project: true, reactions: true },
+        include: { user: true, project: true, votes: true },
       }),
       userId
         ? this.prisma.vaultEntry.findMany({
@@ -247,12 +238,7 @@ export class ReflectionsService {
     const vaultedSet = new Set(vaults.map((v) => v.entryId));
     return records
       .map((r) => this.mapToFeedEntry(r, userId, vaultedSet))
-      .sort(
-        (a, b) =>
-          b.reactions.useful.count +
-          b.reactions.applied.count -
-          (a.reactions.useful.count + a.reactions.applied.count),
-      );
+      .sort((a, b) => b.votes.score - a.votes.score);
   }
 
   async getTopTags(limit: number) {
@@ -306,7 +292,7 @@ export class ReflectionsService {
     const users = await this.prisma.user.findMany({
       where: {
         id: { in: grouped.map((row) => row.userId) },
-        isPrivate: false,
+        visibility: 'public',
       },
       select: {
         id: true,
@@ -335,7 +321,7 @@ export class ReflectionsService {
     const [record, vault] = await Promise.all([
       this.prisma.reflection.findUnique({
         where: { id },
-        include: { user: true, project: true, reactions: true },
+        include: { user: true, project: true, votes: true },
       }),
       userId
         ? this.prisma.vaultEntry.findFirst({
@@ -361,7 +347,7 @@ export class ReflectionsService {
         where: { projectId: target.projectId, NOT: { id } },
         take: limit,
         orderBy: { createdAt: 'desc' },
-        include: { user: true, project: true, reactions: true },
+        include: { user: true, project: true, votes: true },
       }),
       userId
         ? this.prisma.vaultEntry.findMany({
@@ -384,17 +370,23 @@ export class ReflectionsService {
     if (!record) throw new NotFoundException('Reflection not found');
     if (record.userId !== userId) throw new ForbiddenException('Access denied');
 
+    const updateData: any = {
+      title: data.title,
+      fields: data.fields,
+      tags: data.tags,
+      content: data.content,
+    };
+
+    if (data.category) {
+      updateData.category = data.category.toUpperCase() as ReflectionCategory;
+    }
+    if (data.impact) {
+      updateData.impact = data.impact.toUpperCase() as ImpactLevel;
+    }
+
     return this.prisma.reflection.update({
       where: { id },
-      data: {
-        title: data.title,
-        category: data.category,
-        template_type: data.template_type,
-        fields: data.fields,
-        tags: data.tags,
-        content: data.content,
-        impact: data.impact,
-      },
+      data: updateData,
     });
   }
 
@@ -417,12 +409,19 @@ export class ReflectionsService {
     const whereClause: any = {};
 
     if (filters.tags?.length) whereClause.tags = { hasSome: filters.tags };
-    if (filters.templateTypes?.length)
-      whereClause.template_type = { in: filters.templateTypes };
-    if (filters.impact) whereClause.impact = filters.impact;
+    if (filters.templateTypes?.length) {
+      whereClause.category = {
+        in: filters.templateTypes.map(
+          (t: string) => t.toUpperCase() as ReflectionCategory,
+        ),
+      };
+    }
+    if (filters.impact) {
+      whereClause.impact = filters.impact.toUpperCase() as ImpactLevel;
+    }
 
     if (view === 'from_your_stack') {
-      whereClause.project = { users: { some: { id: userId } } };
+      whereClause.project = { userId: userId };
     }
 
     const [records, total, vaults] = await Promise.all([
@@ -431,7 +430,7 @@ export class ReflectionsService {
         skip,
         take: pagination.limit,
         orderBy: { createdAt: 'desc' },
-        include: { user: true, project: true, reactions: true },
+        include: { user: true, project: true, votes: true },
       }),
       this.prisma.reflection.count({ where: whereClause }),
       this.prisma.vaultEntry.findMany({
@@ -461,47 +460,59 @@ export class ReflectionsService {
     return Array.from(tagsSet);
   }
 
+  // ⚡️ FIXED: Updated method metrics using explicit VoteType Enums
   async getReactionCounts(entryId: string, userId?: string) {
-    const reactions = await this.prisma.reaction.findMany({
+    const votes = await this.prisma.vote.findMany({
       where: { entryId },
     });
+
+    const upvotes = votes.filter((v) => v.type === VoteType.UPVOTE);
+    const downvotes = votes.filter((v) => v.type === VoteType.DOWNVOTE);
+
     return {
-      useful: {
-        count: reactions.filter((r) => r.type === 'useful').length,
-        reacted: reactions.some(
-          (r) => r.type === 'useful' && r.userId === userId,
-        ),
+      upvotes: {
+        count: upvotes.length,
+        reacted: upvotes.some((v) => v.userId === userId),
       },
-      critical: {
-        count: reactions.filter((r) => r.type === 'critical').length,
-        reacted: reactions.some(
-          (r) => r.type === 'critical' && r.userId === userId,
-        ),
+      downvotes: {
+        count: downvotes.length,
+        reacted: downvotes.some((v) => v.userId === userId),
       },
-      applied: {
-        count: reactions.filter((r) => r.type === 'applied').length,
-        reacted: reactions.some(
-          (r) => r.type === 'applied' && r.userId === userId,
-        ),
-      },
+      score: upvotes.length - downvotes.length,
     };
   }
 
-  async toggleReaction(
-    entryId: string,
-    userId: string,
-    type: 'useful' | 'critical' | 'applied',
-  ) {
-    const existing = await this.prisma.reaction.findFirst({
-      where: { entryId, userId, type },
+  async toggleVote(entryId: string, userId: string, type: VoteType) {
+    const existing = await this.prisma.vote.findFirst({
+      where: { entryId, userId },
     });
+
     if (existing) {
-      await this.prisma.reaction.delete({ where: { id: existing.id } });
-      return { reacted: false };
-    } else {
-      await this.prisma.reaction.create({ data: { entryId, userId, type } });
-      return { reacted: true };
+      if (existing.type === type) {
+        await this.prisma.vote.delete({ where: { id: existing.id } });
+        return { voted: false, action: 'removed' };
+      }
+
+      await this.prisma.vote.update({
+        where: { id: existing.id },
+        data: {
+          type,
+          value: type === VoteType.UPVOTE ? 1 : -1,
+        },
+      });
+      return { voted: true, action: 'switched' };
     }
+
+    await this.prisma.vote.create({
+      data: {
+        entryId,
+        userId,
+        type,
+        value: type === VoteType.UPVOTE ? 1 : -1,
+      },
+    });
+
+    return { voted: true, action: 'added' };
   }
 
   async toggleVault(entryId: string, userId: string) {
@@ -535,7 +546,9 @@ export class ReflectionsService {
         skip,
         take: pagination.limit,
         include: {
-          entry: { include: { user: true, project: true, reactions: true } },
+          entry: {
+            include: { user: true, project: true, votes: true },
+          } as any,
         },
       }),
       this.prisma.vaultEntry.count({ where: { userId } }),
