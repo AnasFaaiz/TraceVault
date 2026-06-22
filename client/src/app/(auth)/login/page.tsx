@@ -5,7 +5,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import AuthLayout from "@/components/auth/AuthLayout";
-import { Eye, EyeOff, ShieldCheck, Mail } from "lucide-react";
+import { Eye, EyeOff, ShieldCheck, Mail, X } from "lucide-react";
 import { useState, useEffect } from "react";
 import styles from "@/app/auth.module.css";
 import api from "@/lib/api";
@@ -146,240 +146,238 @@ export default function LoginPage() {
 
   return (
     <AuthLayout type="login">
-      {!mfaRequired ? (
-        /* STANDARD SIGN IN VIEW */
-        <form
-          onSubmit={loginForm.handleSubmit(onLoginSubmit)}
-          className={styles.form}
-        >
-          {error && (
-            <div
-              className={styles.errorText}
-              style={{ textAlign: "center", marginBottom: "16px" }}
-            >
-              {error}
-            </div>
-          )}
-
-          <div className={styles.formGroup}>
-            <label className={styles.label}>Email Address</label>
-            <div className={styles.inputWrapper}>
-              <input
-                {...loginForm.register("email")}
-                type="email"
-                placeholder="name@company.com"
-                className={styles.input}
-              />
-            </div>
-            {loginForm.formState.errors.email && (
-              <p className={styles.errorText}>
-                {loginForm.formState.errors.email.message}
-              </p>
-            )}
-          </div>
-
-          <div className={styles.formGroup}>
-            <div
-              style={{
-                display: "flex",
-                justifyContent: "space-between",
-                alignItems: "center",
-              }}
-            >
-              <label className={styles.label}>Password</label>
-              <Link
-                href="/forgot-password"
-                className={styles.footerLink}
-                style={{
-                  fontSize: "11px",
-                  textTransform: "uppercase",
-                  letterSpacing: "0.05em",
-                }}
-              >
-                Forgot?
-              </Link>
-            </div>
-            <div className={styles.inputWrapper}>
-              <input
-                {...loginForm.register("password")}
-                type={showPassword ? "text" : "password"}
-                placeholder="••••••••"
-                className={`${styles.input} ${styles.passwordInput}`}
-              />
-              <button
-                type="button"
-                onClick={() => setShowPassword(!showPassword)}
-                className={styles.passwordToggle}
-                aria-label={showPassword ? "Hide password" : "Show password"}
-              >
-                {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
-              </button>
-            </div>
-            {loginForm.formState.errors.password && (
-              <p className={styles.errorText}>
-                {loginForm.formState.errors.password.message}
-              </p>
-            )}
-          </div>
-
-          <button
-            disabled={isLoading}
-            type="submit"
-            className={styles.submitBtn}
+      <form
+        onSubmit={loginForm.handleSubmit(onLoginSubmit)}
+        className={`${styles.form} ${mfaRequired ? styles.blurContext : ""}`}
+      >
+        {error && !mfaRequired && (
+          <div
+            className={styles.errorText}
+            style={{ textAlign: "center", marginBottom: "16px" }}
           >
-            {isLoading ? (
-              <div className={styles.loaderContainer}>
-                <div className={styles.loaderRing}></div>
-                <div className={styles.loaderRing}></div>
-                <div className={styles.loaderRing}></div>
-                <div className={styles.loaderRing}></div>
-              </div>
-            ) : (
-              "Sign In to Vault"
-            )}
-          </button>
-        </form>
-      ) : (
-        /* DYNAMIC MFA INTERCEPT VIEW */
-        <form
-          onSubmit={mfaForm.handleSubmit(onMfaSubmit)}
-          className={styles.form}
-        >
-          {/* Choice Selection Tabs (Only displayed if multiple methods are accessible) */}
-          {availableMethods.length > 1 && (
-            <div
+            {error}
+          </div>
+        )}
+
+        <div className={styles.formGroup}>
+          <label className={styles.label}>Email Address</label>
+          <div className={styles.inputWrapper}>
+            <input
+              {...loginForm.register("email")}
+              type="email"
+              placeholder="name@company.com"
+              className={styles.input}
+              disabled={mfaRequired}
+            />
+          </div>
+          {loginForm.formState.errors.email && (
+            <p className={styles.errorText}>
+              {loginForm.formState.errors.email.message}
+            </p>
+          )}
+        </div>
+
+        <div className={styles.formGroup}>
+          <div
+            style={{
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+            }}
+          >
+            <label className={styles.label}>Password</label>
+            <Link
+              href="/forgot-password"
+              className={styles.footerLink}
               style={{
-                display: "flex",
-                gap: "8px",
-                marginBottom: "20px",
-                background: "#1b1b1f",
-                padding: "4px",
-                borderRadius: "6px",
+                fontSize: "11px",
+                textTransform: "uppercase",
+                letterSpacing: "0.05em",
               }}
             >
-              <button
-                type="button"
-                onClick={() => handleMethodChange("totp")}
-                style={{
-                  flex: 1,
-                  padding: "8px",
-                  borderRadius: "4px",
-                  fontSize: "12px",
-                  cursor: "pointer",
-                  border: "none",
-                  background: mfaMethod === "totp" ? "#27272a" : "transparent",
-                  color: mfaMethod === "totp" ? "#ffffff" : "#a1a1aa",
-                  transition: "all 0.2s ease",
-                }}
+              Forgot?
+            </Link>
+          </div>
+          <div className={styles.inputWrapper}>
+            <input
+              {...loginForm.register("password")}
+              type={showPassword ? "text" : "password"}
+              placeholder="••••••••"
+              className={`${styles.input} ${styles.passwordInput}`}
+              disabled={mfaRequired}
+            />
+            <button
+              type="button"
+              onClick={() => setShowPassword(!showPassword)}
+              className={styles.passwordToggle}
+              aria-label={showPassword ? "Hide password" : "Show password"}
+              disabled={mfaRequired}
+            >
+              {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+            </button>
+          </div>
+          {loginForm.formState.errors.password && (
+            <p className={styles.errorText}>
+              {loginForm.formState.errors.password.message}
+            </p>
+          )}
+        </div>
+
+        <button
+          disabled={isLoading || mfaRequired}
+          type="submit"
+          className={styles.submitBtn}
+        >
+          {isLoading && !mfaRequired ? (
+            <div className={styles.loaderContainer}>
+              <div className={styles.loaderRing}></div>
+              <div className={styles.loaderRing}></div>
+              <div className={styles.loaderRing}></div>
+              <div className={styles.loaderRing}></div>
+            </div>
+          ) : (
+            "Sign In to Vault"
+          )}
+        </button>
+      </form>
+
+      {mfaRequired && (
+        <div className={styles.overlayMask}>
+          <div className={styles.overlayCard}>
+            <button
+              type="button"
+              className={styles.overlayCloseBtn}
+              onClick={() => {
+                setMfaRequired(false);
+                setMfaSessionToken(null);
+                setError(null);
+                mfaForm.reset();
+              }}
+            >
+              <X size={16} />
+            </button>
+
+            <h2
+              className={styles.title}
+              style={{ fontSize: "24px", marginBottom: "4px" }}
+            >
+              Security Checkpoint
+            </h2>
+            <p className={styles.subtitle} style={{ marginBottom: "20px" }}>
+              Multi-factor identification required.
+            </p>
+
+            <form
+              onSubmit={mfaForm.handleSubmit(onMfaSubmit)}
+              style={{ width: "100%" }}
+            >
+              {/* Tabs matrix layout rendering */}
+              {availableMethods.length > 1 && (
+                <div className={styles.mfaMethodTabs}>
+                  <button
+                    type="button"
+                    onClick={() => handleMethodChange("totp")}
+                    className={`${styles.mfaTabButton} ${mfaMethod === "totp" ? styles.mfaTabActive : ""}`}
+                  >
+                    Authenticator App
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleMethodChange("email")}
+                    className={`${styles.mfaTabButton} ${mfaMethod === "email" ? styles.mfaTabActive : ""}`}
+                  >
+                    Email Code
+                  </button>
+                </div>
+              )}
+
+              <div
+                className={styles.mfaContainer}
+                style={{ marginBottom: "16px" }}
               >
-                Authenticator App
+                <div className={styles.mfaIconWrapper}>
+                  {mfaMethod === "totp" ? (
+                    <ShieldCheck size={20} strokeWidth={1.5} />
+                  ) : (
+                    <Mail size={20} strokeWidth={1.5} />
+                  )}
+                </div>
+                <p className={styles.mfaSubtitle}>
+                  {mfaMethod === "totp"
+                    ? "Enter the 6-digit verification code from your authenticator app."
+                    : "A temporary verification token was dispatched to your email."}
+                </p>
+              </div>
+
+              {error && (
+                <div
+                  className={styles.errorText}
+                  style={{ textAlign: "center", marginBottom: "16px" }}
+                >
+                  {error}
+                </div>
+              )}
+
+              <div className={styles.formGroup}>
+                <label className={styles.label}>
+                  {mfaMethod === "totp"
+                    ? "Authenticator Code"
+                    : "Verification Token"}
+                </label>
+                <div className={styles.inputWrapper}>
+                  <input
+                    {...mfaForm.register("code")}
+                    type="text"
+                    maxLength={6}
+                    autoComplete="one-time-code"
+                    placeholder="000000"
+                    className={`${styles.input} ${styles.mfaInput}`}
+                    style={{
+                      textAlign: "center",
+                      letterSpacing: "0.25em",
+                      fontSize: "18px",
+                    }}
+                  />
+                </div>
+                {mfaForm.formState.errors.code && (
+                  <p className={styles.errorText}>
+                    {mfaForm.formState.errors.code.message}
+                  </p>
+                )}
+              </div>
+
+              <button
+                disabled={isLoading}
+                type="submit"
+                className={styles.submitBtn}
+                style={{ width: "100%" }}
+              >
+                {isLoading ? (
+                  <div className={styles.loaderContainer}>
+                    <div className={styles.loaderRing}></div>
+                    <div className={styles.loaderRing}></div>
+                    <div className={styles.loaderRing}></div>
+                    <div className={styles.loaderRing}></div>
+                  </div>
+                ) : (
+                  "Verify & Unlock"
+                )}
               </button>
+
               <button
                 type="button"
                 onClick={() => handleMethodChange("email")}
-                style={{
-                  flex: 1,
-                  padding: "8px",
-                  borderRadius: "4px",
-                  fontSize: "12px",
-                  cursor: "pointer",
-                  border: "none",
-                  background: mfaMethod === "email" ? "#27272a" : "transparent",
-                  color: mfaMethod === "email" ? "#ffffff" : "#a1a1aa",
-                  transition: "all 0.2s ease",
-                }}
+                className={styles.fallbackBtn}
+                disabled={isLoading}
+                style={{ width: "100%", display: "block" }}
               >
-                Email Code
+                {mfaMethod === "totp"
+                  ? "Lost app access? Use email backup code fallback"
+                  : "Didn't receive a token? Click to resend code verification email"}
               </button>
-            </div>
-          )}
-
-          <div className={styles.mfaContainer}>
-            <div className={styles.mfaIconWrapper}>
-              {mfaMethod === "totp" ? (
-                <ShieldCheck size={20} strokeWidth={1.5} />
-              ) : (
-                <Mail size={20} strokeWidth={1.5} />
-              )}
-            </div>
-            <p className={styles.mfaSubtitle}>
-              {mfaMethod === "totp"
-                ? "Enter the 6-digit confirmation key via your security authenticator application."
-                : "A temporary dynamic verification token was dispatched to your registered email."}
-            </p>
+            </form>
           </div>
-
-          {error && (
-            <div
-              className={styles.errorText}
-              style={{ textAlign: "center", marginBottom: "16px" }}
-            >
-              {error}
-            </div>
-          )}
-
-          <div className={styles.formGroup}>
-            <label className={styles.label}>
-              {mfaMethod === "totp"
-                ? "Authenticator Code"
-                : "Verification Token"}
-            </label>
-            <div className={styles.inputWrapper}>
-              <input
-                {...mfaForm.register("code")}
-                type="text"
-                maxLength={6}
-                autoComplete="one-time-code"
-                placeholder="000000"
-                className={`${styles.input} ${styles.mfaInput}`}
-                style={{
-                  textAlign: "center",
-                  letterSpacing: "0.25em",
-                  fontSize: "18px",
-                }}
-              />
-            </div>
-            {mfaForm.formState.errors.code && (
-              <p className={styles.errorText}>
-                {mfaForm.formState.errors.code.message}
-              </p>
-            )}
-          </div>
-
-          <button
-            disabled={isLoading}
-            type="submit"
-            className={styles.submitBtn}
-          >
-            {isLoading ? (
-              <div className={styles.loaderContainer}>
-                <div className={styles.loaderRing}></div>
-                <div className={styles.loaderRing}></div>
-                <div className={styles.loaderRing}></div>
-                <div className={styles.loaderRing}></div>
-              </div>
-            ) : (
-              "Verify Checkpoint"
-            )}
-          </button>
-
-          <button
-            type="button"
-            onClick={() => handleMethodChange("email")}
-            className={styles.fallbackBtn}
-            disabled={isLoading}
-            style={{
-              marginTop: "12px",
-              background: "none",
-              border: "none",
-              cursor: "pointer",
-            }}
-          >
-            {mfaMethod === "totp"
-              ? "Lost app access? Request a secure email fallback code"
-              : "Didn't receive a code? Click here to resend email token"}
-          </button>
-        </form>
+        </div>
       )}
     </AuthLayout>
   );

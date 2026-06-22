@@ -4,7 +4,6 @@ import {
   Terminal,
   Layout,
   Folder,
-  History,
   LogOut,
   Settings,
   Globe,
@@ -165,12 +164,6 @@ export default function AppLayout({
       icon: <Archive size={16} />,
       label: "Vault",
       href: "/vault",
-    },
-    {
-      id: "reflections",
-      icon: <History size={16} />,
-      label: "History",
-      href: "/history",
     },
     {
       id: "settings",

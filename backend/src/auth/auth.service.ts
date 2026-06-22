@@ -2,6 +2,7 @@ import {
   Injectable,
   BadRequestException,
   UnauthorizedException,
+  NotFoundException,
 } from '@nestjs/common';
 import { UsersService } from '../users/users.service';
 import * as bcrypt from 'bcrypt';
@@ -31,7 +32,7 @@ export class AuthService {
   private setRefreshTokenCookie(res: Response, token: string, expires: Date) {
     res.cookie('refreshToken', token, {
       httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
+      secure: this.configService.get<String>('NODE_ENV') === 'production',
       sameSite: 'lax',
       expires: expires,
     });
@@ -110,7 +111,7 @@ export class AuthService {
       if (trustedRecord) isDeviceTrusted = true;
     }
 
-    if (!isDeviceTrusted) {
+    if (user.isTwoFactorSecret && !isDeviceTrusted) {
       const mfaSessionToken = this.jwtService.sign(
         { sub: user.id, isMfaPending: true },
         {
@@ -121,7 +122,7 @@ export class AuthService {
       return {
         requiresMFA: true,
         mfaSessionToken,
-        supportedMethods: user.twoFactorSecret ? ['totp', 'email'] : ['email'],
+        supportedMethods: ['totp', 'email'],
       };
     }
 
@@ -185,6 +186,7 @@ export class AuthService {
     const userAgent = Array.isArray(userAgentRaw)
       ? userAgentRaw[0]
       : userAgentRaw;
+
     await this.usersService.saveTrustedDevice(
       user.id,
       deviceHash,
@@ -194,7 +196,7 @@ export class AuthService {
 
     res.cookie('trustedDevice', rawDeviceToken, {
       httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
+      secure: this.configService.get<String>('NODE_ENV') === 'production',
       sameSite: 'lax',
       expires: thirtyDays,
     });
@@ -269,6 +271,16 @@ export class AuthService {
     };
   }
 
+  async disable2Fa(userId: string) {
+    const user = await this.usersService.findById(userId);
+    if (!user) throw new NotFoundException('User profile missing');
+
+    await this.usersService.disableTwoFactor(userId);
+    return {
+      message: 'MFA signatures dismantled',
+    };
+  }
+
   async refreshToken(req: Request, res: Response) {
     const refreshToken = req.cookies['refreshToken'];
     if (!refreshToken) throw new UnauthorizedException('No refresh token');
@@ -289,7 +301,6 @@ export class AuthService {
       Date.now() + 30 * 24 * 60 * 60 * 1000,
     );
 
-    // ⚡️ FIXED: Re-added the database storage call so the rotated token state is saved in PostgreSQL
     await this.usersService.setRefreshToken(
       user.id,
       this.hashToken(newRefreshToken),
@@ -323,7 +334,7 @@ export class AuthService {
     }
     res.clearCookie('refreshToken', {
       httpOnly: true,
-      secure: true,
+      secure: this.configService.get<string>('NODE_ENV') === 'production',
       sameSite: 'lax',
     });
     return { message: 'Logged out successfully' };
@@ -336,7 +347,6 @@ export class AuthService {
         'If an account with that email exists, a password reset link has been sent. ',
     };
 
-    // Return generic response regardless of account existence.
     if (
       !user ||
       typeof user !== 'object' ||
@@ -417,6 +427,7 @@ export class AuthService {
       email: user.email,
       name: user.name,
       username: username,
+      isTwoFactorSecret: !!user.isTwoFactorSecret,
     };
   }
 }

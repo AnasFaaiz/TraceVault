@@ -1,0 +1,180 @@
+/* src/app/settings/settings.module.css */
+.container {
+  max-width: 1100px;
+  margin: 40px auto;
+  padding: 0 24px;
+  display: grid;
+  grid-template-columns: 240px 1fr;
+  gap: 48px;
+  animation: fadeIn 0.4s ease-out forwards;
+}
+
+.sidebar {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.sidebarHeader {
+  font-size: 2.2rem;
+  margin-bottom: 24px;
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 12px;
+}
+
+.navButton {
+  background: transparent;
+  border: none;
+  text-align: left;
+  padding: 10px 14px;
+  font-family: var(--font-sans);
+  font-size: 14px;
+  color: var(--text-muted);
+  border-radius: 6px;
+  width: 100%;
+}
+
+.navButton:hover {
+  background-color: var(--secondary);
+  color: var(--foreground);
+}
+
+.activeNavButton {
+  composes: navButton;
+  background-color: var(--secondary);
+  color: var(--foreground);
+  font-weight: 500;
+}
+
+.contentArea {
+  background-color: transparent;
+}
+
+.sectionHeader {
+  font-size: 2.5rem;
+  margin-bottom: 8px;
+}
+
+.sectionDescription {
+  font-family: var(--font-sans);
+  color: var(--text-muted);
+  font-size: 14px;
+  margin-bottom: 32px;
+}
+
+.card {
+  background-color: var(--secondary);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 24px;
+  margin-bottom: 24px;
+}
+
+.cardTitle {
+  font-size: 1.6rem;
+  margin-bottom: 16px;
+}
+
+.formGroup {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 16px;
+  max-width: 400px;
+}
+
+.formGroup label {
+  font-family: var(--font-sans);
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--foreground);
+}
+
+.input {
+  font-family: var(--font-mono);
+  font-size: 14px;
+  padding: 10px 12px;
+  background-color: var(--background);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--foreground);
+  outline: none;
+  transition: border-color 0.2s ease;
+}
+
+.input:focus {
+  border-color: var(--primary);
+}
+
+.buttonPrimary {
+  font-family: var(--font-sans);
+  font-weight: 500;
+  background-color: var(--foreground);
+  color: var(--background);
+  border: none;
+  padding: 10px 16px;
+  border-radius: 6px;
+  font-size: 14px;
+}
+
+.buttonPrimary:hover {
+  background-color: var(--primary);
+}
+
+.buttonDanger {
+  font-family: var(--font-sans);
+  font-weight: 500;
+  background-color: transparent;
+  color: #c94f4f;
+  border: 1px solid #c94f4f;
+  padding: 10px 16px;
+  border-radius: 6px;
+  font-size: 14px;
+}
+
+.buttonDanger:hover {
+  background-color: #c94f4f;
+  color: #fff;
+}
+
+.qrContainer {
+  background: white;
+  padding: 16px;
+  border-radius: 8px;
+  width: fit-content;
+  margin: 16px 0;
+  border: 1px solid var(--border);
+}
+
+.messageSuccess {
+  font-family: var(--font-sans);
+  color: #2e7d32;
+  font-size: 14px;
+  margin-top: 12px;
+}
+
+.messageError {
+  font-family: var(--font-sans);
+  color: #c94f4f;
+  font-size: 14px;
+  margin-top: 12px;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* --- Optional Responsive Adjustments --- */
+@media (max-width: 768px) {
+  /* If you ever want the sidebar layout to stack gracefully on smaller breakpoints */
+  .contentArea {
+    padding-top: 16px;
+  }
+}

@@ -32,7 +32,6 @@ export class AuthController {
       body.name,
       res,
     );
-    // Explicit return to satisfy express passthrough constraints safely
     return res.json(result);
   }
 
@@ -51,7 +50,6 @@ export class AuthController {
     @Body() body: { mfaSessionToken?: string; token?: string; email?: string },
     @Res() res: express.Response,
   ) {
-    // ⚡️ FIXED: Fallback logic handles standard login MFA flows AND recovery tracking check-ins
     const targetToken = body.mfaSessionToken || body.token || '';
 
     const result = await this.authService.sendMfaEmailOtp(targetToken);
@@ -95,6 +93,37 @@ export class AuthController {
       body.token,
       body.password,
     );
+    return res.json(result);
+  }
+
+  @Post('mfa/setup')
+  @UseGuards(AuthGuard('jwt'))
+  async generate2FaQrCode(
+    @Req() req: { user: { userId: string; email: string } },
+    @Res() res: express.Response,
+  ) {
+    const result = await this.authService.generate2FaQrCode(req.user.userId);
+    return res.json(result);
+  }
+
+  @Post('mfa/verify-setup')
+  @UseGuards(AuthGuard('jwt'))
+  async activate2Fa(
+    @Req() req: { user: { userId: string; email: string } },
+    @Body('code') code: string,
+    @Res() res: express.Response,
+  ) {
+    const result = await this.authService.activate2Fa(req.user.userId, code);
+    return res.json(result);
+  }
+
+  @Post('mfa/disable')
+  @UseGuards(AuthGuard('jwt'))
+  async disable2Fa(
+    @Req() req: { user: { userId: string; email: string } },
+    @Res() res: express.Response,
+  ) {
+    const result = await this.authService.disable2Fa(req.user.userId);
     return res.json(result);
   }
 }

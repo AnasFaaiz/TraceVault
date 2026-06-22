@@ -129,7 +129,17 @@ export class UsersService {
   async enableTwoFactor(userId: string): Promise<User> {
     return this.prisma.user.update({
       where: { id: userId },
-      data: { isTwoFactorEnabled: true } as any,
+      data: { isTwoFactorSecret: true },
+    });
+  }
+
+  async disableTwoFactor(userId: string): Promise<User> {
+    return this.prisma.user.update({
+      where: { id: userId },
+      data: {
+        isTwoFactorSecret: false,
+        twoFactorSecret: null,
+      },
     });
   }
 
